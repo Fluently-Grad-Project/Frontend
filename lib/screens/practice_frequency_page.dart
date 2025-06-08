@@ -109,12 +109,11 @@ class _PracticingFrequencyPageState extends State<PracticingFrequencyPage> {
       ),
     );
   }
-
   Widget _buildProgressBar(double progress) {
     return LinearProgressIndicator(
       value: progress,
-      backgroundColor: Colors.white,
-      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF9F86C0)),
+      backgroundColor: const Color(0xFF9F86C0),
+      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
       minHeight: 6,
     );
   }

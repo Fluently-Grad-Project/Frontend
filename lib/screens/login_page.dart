@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'signup_page.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/google_auth_service.dart';
 
@@ -73,14 +72,11 @@ class _LoginPageState extends State<LoginPage> {
                         fillColor: Colors.white,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                            obscurePassword ? Icons.visibility_off : Icons.visibility,
                             color: Colors.grey,
                           ),
                           onPressed: () {
-                            setState(() =>
-                            obscurePassword = !obscurePassword);
+                            setState(() => obscurePassword = !obscurePassword);
                           },
                         ),
                         border: OutlineInputBorder(
@@ -120,60 +116,60 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       child: const Text(
                         'Log in',
-                        style:
-                        TextStyle(fontSize: 16, color: Colors.white),
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ),
 
                     const SizedBox(height: 24),
-                    Row(
-                      children: const [
-                        Expanded(child: Divider(thickness: 1)),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'Or login with',
-                            style: TextStyle(
-                              color: Color(0xFF9F86C0),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                    const Center(
+                      child: Text(
+                        'Or',
+                        style: TextStyle(
+                          color: Color(0xFF9F86C0),
+                          fontWeight: FontWeight.w500,
                         ),
-                        Expanded(child: Divider(thickness: 1)),
-                      ],
+                      ),
                     ),
-
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildSocialIcon('assets/facebook.png'),
-                        GestureDetector(
-                          onTap: () async {
-                            try {
-                              UserCredential? credential =
-                              await GoogleAuthService.signInWithGoogle();
-                              User? user = credential?.user;
 
-                              if (user != null && mounted) {
-                                Navigator.pushReplacementNamed(context, '/home');
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Google sign-in failed: $e',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                          child: _buildSocialIcon('assets/google.png'),
+                    GestureDetector(
+                      onTap: () async {
+                        try {
+                          final credential = await GoogleAuthService.signInWithGoogle();
+                          if (credential?.user != null && mounted) {
+                            Navigator.pushReplacementNamed(context, '/home');
+                          }
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Google sign-in failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F3F4),
+                          borderRadius: BorderRadius.circular(50),
                         ),
-                        _buildSocialIcon('assets/linkedin.png'),
-                      ],
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset('assets/google.png', width: 20, height: 20),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Continue with Google',
+                              style: TextStyle(
+                                color: Color(0xFF5F6368),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
 
                     const SizedBox(height: 24),
@@ -182,8 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) => const SignUpPage()),
+                            MaterialPageRoute(builder: (_) => const SignUpPage()),
                           );
                         },
                         child: const Text.rich(
@@ -241,19 +236,6 @@ class _LoginPageState extends State<LoginPage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-      ),
-    );
-  }
-
-  Widget _buildSocialIcon(String assetPath) {
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: Colors.white,
-      child: Image.asset(
-        assetPath,
-        width: 28,
-        height: 28,
-        fit: BoxFit.contain,
       ),
     );
   }
