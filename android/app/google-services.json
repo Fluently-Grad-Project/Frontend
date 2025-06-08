@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "919278100107",
+    "project_id": "fluently-d79a2",
+    "storage_bucket": "fluently-d79a2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919278100107:android:0e12183f459823e99ebe8e",
+        "android_client_info": {
+          "package_name": "com.example.fluently_frontend"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "919278100107-sak0pskt0r4ht5qvubrieadng2o5rpe7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBc9vIJUkCljZLi3AkARIq62F_o1gXRplA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "919278100107-sak0pskt0r4ht5qvubrieadng2o5rpe7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
