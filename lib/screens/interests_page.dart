@@ -21,27 +21,38 @@ class InterestsPage extends StatefulWidget {
 
 class _InterestsPageState extends State<InterestsPage> {
   final List<String> allInterests = [
+    "Art",
+    "Beauty",
+    "Books",
+    "Business and entrepreneurship",
+    "Cars and automobiles",
+    "Cooking",
+    "DIY and crafts",
+    "Education and learning",
+    "Fashion",
+    "Finance and investments",
+    "Fitness",
+    "Food and dining",
+    "Gaming",
+    "Gardening",
+    "Health and wellness",
+    "History",
     "Movies",
     "Music",
+    "Nature",
+    "Outdoor activities",
+    "Parenting and family",
+    "Pets",
+    "Photography",
+    "Politics",
+    "Science",
+    "Social causes and activism",
     "Sports",
-    "Books",
-    "Travel",
     "Technology",
-    "Cooking",
-    "Gaming",
-    "Art",
-    "Reading",
-    "Self-care",
-    "Fashion",
-    "Animals",
-    "Podcasts",
-    "Shopping",
-    "Fitness",
-    "Food",
+    "Travel",
   ];
 
   final Set<String> selectedInterests = {};
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,30 +68,38 @@ class _InterestsPageState extends State<InterestsPage> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildProgressBar(1.0),
                 const SizedBox(height: 24),
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "What are your interests?",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          "What are your interests?",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: allInterests.map(_buildChip).toList(),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: allInterests.map(_buildChip).toList(),
-                ),
-                const Spacer(),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
