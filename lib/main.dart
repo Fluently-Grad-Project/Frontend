@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-import 'screens/splash_page.dart';
-import 'screens/signup_page.dart';
-import 'screens/login_page.dart';
-import 'screens/language_selection_page.dart';
-import 'screens/proficiency_level_page.dart';
-import 'screens/practice_frequency_page.dart';
-import 'screens/interests_page.dart';
-import 'screens/account_creation_page.dart';
+import 'screens/auth_flow/splash_page.dart';
+import 'screens/auth_flow/signup_page.dart';
+import 'screens/auth_flow/login_page.dart';
+import 'screens/auth_flow/language_selection_page.dart';
+import 'screens/auth_flow/proficiency_level_page.dart';
+import 'screens/auth_flow/practice_frequency_page.dart';
+import 'screens/auth_flow/interests_page.dart';
+import 'screens/auth_flow/account_creation_page.dart';
 
 
 void main() async {
