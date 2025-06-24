@@ -1,19 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/onboarding_provider.dart';
 import 'account_creation_page.dart';
 
 class InterestsPage extends StatefulWidget {
-  final String firstName;
-  final String selectedLanguage;
-  final String proficiencyLevel;
-  final String practiceFrequency;
-
-  const InterestsPage({
-    super.key,
-    required this.firstName,
-    required this.selectedLanguage,
-    required this.proficiencyLevel,
-    required this.practiceFrequency,
-  });
+  const InterestsPage({super.key});
 
   @override
   State<InterestsPage> createState() => _InterestsPageState();
@@ -21,38 +12,31 @@ class InterestsPage extends StatefulWidget {
 
 class _InterestsPageState extends State<InterestsPage> {
   final List<String> allInterests = [
-    "Art",
-    "Beauty",
-    "Books",
-    "Business and entrepreneurship",
-    "Cars and automobiles",
-    "Cooking",
-    "DIY and crafts",
-    "Education and learning",
-    "Fashion",
-    "Finance and investments",
-    "Fitness",
-    "Food and dining",
-    "Gaming",
-    "Gardening",
-    "Health and wellness",
-    "History",
-    "Movies",
-    "Music",
-    "Nature",
-    "Outdoor activities",
-    "Parenting and family",
-    "Pets",
-    "Photography",
-    "Politics",
-    "Science",
-    "Social causes and activism",
-    "Sports",
-    "Technology",
-    "Travel",
+    "Art", "Beauty", "Books", "Business and entrepreneurship", "Cars and automobiles",
+    "Cooking", "DIY and crafts", "Education and learning", "Fashion", "Finance and investments",
+    "Fitness", "Food and dining", "Gaming", "Gardening", "Health and wellness", "History",
+    "Movies", "Music", "Nature", "Outdoor activities", "Parenting and family", "Pets",
+    "Photography", "Politics", "Science", "Social causes and activism", "Sports",
+    "Technology", "Travel",
   ];
 
   final Set<String> selectedInterests = {};
+
+  void goToNextPage() {
+    Provider.of<OnboardingProvider>(context, listen: false)
+        .data
+        .interests = selectedInterests.toList();
+
+    final firstName = Provider.of<OnboardingProvider>(context, listen: false).data.firstName ?? "User";
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AccountCreatedPage(firstName: firstName),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,18 +87,7 @@ class _InterestsPageState extends State<InterestsPage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: selectedInterests.isNotEmpty
-                        ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AccountCreatedPage(
-                            firstName: widget.firstName,
-                          ),
-                        ),
-                      );
-                    }
-                        : null,
+                    onPressed: selectedInterests.isNotEmpty ? goToNextPage : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9F86C0),
                       disabledBackgroundColor: Colors.grey.shade400,
@@ -176,8 +149,8 @@ class _InterestsPageState extends State<InterestsPage> {
       shadowColor: Colors.grey.shade300,
       elevation: 4,
       pressElevation: 0,
-      shape: StadiumBorder(
-        side: BorderSide(color: const Color(0xFF9F86C0), width: 2),
+      shape: const StadiumBorder(
+        side: BorderSide(color: Color(0xFF9F86C0), width: 2),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
     );

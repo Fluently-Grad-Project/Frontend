@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'signup_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'forgot_password_page.dart';
 import '../../services/google_auth_service.dart';
 
 class LoginPage extends StatefulWidget {
@@ -15,6 +19,29 @@ class _LoginPageState extends State<LoginPage> {
   String email = '';
   String password = '';
   bool obscurePassword = true;
+  bool isLoading = false;
+
+  Future<void> loginWithBackend(String email, String password) async {
+    final url = Uri.parse("http://10.0.2.2:8000/auth/login");
+
+    final response = await http.post(
+      url,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email, "password": password}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("token", data["access_token"]);
+      if (context.mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['detail'] ?? "Login failed");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,16 +75,13 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 32),
-
                     _label("Email Address"),
                     _buildTextField(
                       hint: 'Enter your email',
                       onChanged: (val) => email = val,
-                      validator: (val) => val!.isEmpty || !val.contains('@')
-                          ? 'Enter a valid email'
-                          : null,
+                      validator: (val) =>
+                      val!.isEmpty || !val.contains('@') ? 'Enter a valid email' : null,
                     ),
-
                     const SizedBox(height: 16),
                     _label("Password"),
                     TextFormField(
@@ -85,13 +109,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () {
-                          // TODO: Add forgot password logic
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => ForgotPasswordPage()),
+                          );
                         },
                         child: const Text(
                           'Forgot password?',
@@ -99,12 +125,27 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: isLoading
+                          ? null
+                          : () async {
                         if (_formKey.currentState!.validate()) {
-                          Navigator.pushReplacementNamed(context, '/home');
+                          setState(() => isLoading = true);
+                          try {
+                            await loginWithBackend(email, password);
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.toString()),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          } finally {
+                            if (mounted) {
+                              setState(() => isLoading = false);
+                            }
+                          }
                         }
                       },
                       style: ElevatedButton.styleFrom(
@@ -114,12 +155,11 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: const Text(
-                        'Log in',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      child: Text(
+                        isLoading ? 'Logging in...' : 'Log in',
+                        style: const TextStyle(fontSize: 16, color: Colors.white),
                       ),
                     ),
-
                     const SizedBox(height: 24),
                     const Center(
                       child: Text(
@@ -131,7 +171,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     GestureDetector(
                       onTap: () async {
                         try {
@@ -171,7 +210,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 24),
                     Center(
                       child: GestureDetector(

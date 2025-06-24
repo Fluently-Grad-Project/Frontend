@@ -1,11 +1,10 @@
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/onboarding_provider.dart';
 import 'proficiency_level_page.dart';
 
 class LanguageSelectionPage extends StatefulWidget {
-  final String firstName;
-
-  const LanguageSelectionPage({super.key, required this.firstName});
+  const LanguageSelectionPage({super.key});
 
   @override
   State<LanguageSelectionPage> createState() => _LanguageSelectionPageState();
@@ -54,13 +53,14 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
                   child: ElevatedButton(
                     onPressed: selectedLanguage.isNotEmpty
                         ? () {
+                      Provider.of<OnboardingProvider>(context, listen: false)
+                          .data
+                          .selectedLanguage = selectedLanguage;
+
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ProficiencyLevelPage(
-                            firstName: widget.firstName,
-                            selectedLanguage: selectedLanguage,
-                          ),
+                          builder: (_) => const ProficiencyLevelPage(),
                         ),
                       );
                     }
@@ -96,7 +96,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
     return LinearProgressIndicator(
       value: progress,
       backgroundColor: const Color(0xFF9F86C0),
-      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
       minHeight: 6,
     );
   }
@@ -135,11 +135,10 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 40), // To balance the flag on the left
+            const SizedBox(width: 40),
           ],
         ),
       ),
     );
   }
-
 }

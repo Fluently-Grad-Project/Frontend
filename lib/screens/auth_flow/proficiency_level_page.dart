@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/onboarding_provider.dart';
 import 'practice_frequency_page.dart';
 
 class ProficiencyLevelPage extends StatefulWidget {
-  final String firstName;
-  final String selectedLanguage;
-
-  const ProficiencyLevelPage({
-    super.key,
-    required this.firstName,
-    required this.selectedLanguage,
-  });
+  const ProficiencyLevelPage({super.key});
 
   @override
   State<ProficiencyLevelPage> createState() => _ProficiencyLevelPageState();
@@ -17,6 +12,25 @@ class ProficiencyLevelPage extends StatefulWidget {
 
 class _ProficiencyLevelPageState extends State<ProficiencyLevelPage> {
   String selectedLevel = '';
+
+  void goToNextPage() {
+    if (selectedLevel.isNotEmpty) {
+      Provider.of<OnboardingProvider>(context, listen: false)
+          .data
+          .proficiencyLevel = selectedLevel;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const PracticingFrequencyPage(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your level.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +49,7 @@ class _ProficiencyLevelPageState extends State<ProficiencyLevelPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildProgressBar(0.5),
+                _buildProgressBar(0.50),
                 const SizedBox(height: 24),
                 IconButton(
                   icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
@@ -43,7 +57,7 @@ class _ProficiencyLevelPageState extends State<ProficiencyLevelPage> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "What is your language level?",
+                  "What is your English proficiency level?",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -51,34 +65,23 @@ class _ProficiencyLevelPageState extends State<ProficiencyLevelPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                _buildOption("Beginner", selectedLevel, (val) => setState(() => selectedLevel = val)),
-                _buildOption("Intermediate", selectedLevel, (val) => setState(() => selectedLevel = val)),
-                _buildOption("Fluent", selectedLevel, (val) => setState(() => selectedLevel = val)),
+                _buildLevelOption("Beginner"),
+                const SizedBox(height: 16),
+                _buildLevelOption("Intermediate"),
+                const SizedBox(height: 16),
+                _buildLevelOption("Fluent"),
                 const Spacer(),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: selectedLevel.isNotEmpty
-                        ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PracticingFrequencyPage(
-                            firstName: widget.firstName,
-                            selectedLanguage: widget.selectedLanguage,
-                            proficiencyLevel: selectedLevel,
-                          ),
-                        ),
-                      );
-                    }
-                        : null,
+                    onPressed: goToNextPage,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9F86C0),
-                      disabledBackgroundColor: Colors.grey.shade400,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
+                      elevation: 0,
                     ),
                     child: const Text(
                       'Continue',
@@ -102,34 +105,32 @@ class _ProficiencyLevelPageState extends State<ProficiencyLevelPage> {
     return LinearProgressIndicator(
       value: progress,
       backgroundColor: const Color(0xFF9F86C0),
-      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
       minHeight: 6,
     );
   }
 
-  Widget _buildOption(String label, String selected, void Function(String) onSelect) {
-    final isSelected = selected == label;
+  Widget _buildLevelOption(String level) {
+    final isSelected = selectedLevel == level;
 
     return GestureDetector(
-      onTap: () => onSelect(label),
+      onTap: () => setState(() => selectedLevel = level),
       child: Container(
         width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF9F86C0) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFF9F86C0), width: 2),
         ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : const Color(0xFF9F86C0),
-            ),
+        child: Text(
+          level,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF9F86C0),
           ),
+          textAlign: TextAlign.center,
         ),
       ),
     );

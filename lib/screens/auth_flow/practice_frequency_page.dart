@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/onboarding_provider.dart';
 import 'interests_page.dart';
 
 class PracticingFrequencyPage extends StatefulWidget {
-  final String firstName;
-  final String selectedLanguage;
-  final String proficiencyLevel;
-
-  const PracticingFrequencyPage({
-    super.key,
-    required this.firstName,
-    required this.selectedLanguage,
-    required this.proficiencyLevel,
-  });
+  const PracticingFrequencyPage({super.key});
 
   @override
   State<PracticingFrequencyPage> createState() => _PracticingFrequencyPageState();
@@ -26,6 +19,25 @@ class _PracticingFrequencyPageState extends State<PracticingFrequencyPage> {
     '1 hour/day',
     '2 hours/day',
   ];
+
+  void goToNextPage() {
+    if (selectedFrequency.isNotEmpty) {
+      Provider.of<OnboardingProvider>(context, listen: false)
+          .data
+          .practiceFrequency = selectedFrequency;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const InterestsPage(),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a practice frequency.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +64,7 @@ class _PracticingFrequencyPageState extends State<PracticingFrequencyPage> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "How often would you like to practice?",
+                  "How much time can you practice daily?",
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -60,37 +72,19 @@ class _PracticingFrequencyPageState extends State<PracticingFrequencyPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                ...options.map((option) => _buildOption(
-                  option,
-                  selectedFrequency,
-                      (val) => setState(() => selectedFrequency = val),
-                )),
+                ...options.map((option) => _buildOption(option)).toList(),
                 const Spacer(),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: selectedFrequency.isNotEmpty
-                        ? () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => InterestsPage(
-                            firstName: widget.firstName,
-                            selectedLanguage: widget.selectedLanguage,
-                            proficiencyLevel: widget.proficiencyLevel,
-                            practiceFrequency: selectedFrequency,
-                          ),
-                        ),
-                      );
-                    }
-                        : null,
+                    onPressed: goToNextPage,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF9F86C0),
-                      disabledBackgroundColor: Colors.grey.shade400,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
+                      elevation: 0,
                     ),
                     child: const Text(
                       'Continue',
@@ -109,38 +103,38 @@ class _PracticingFrequencyPageState extends State<PracticingFrequencyPage> {
       ),
     );
   }
+
   Widget _buildProgressBar(double progress) {
     return LinearProgressIndicator(
       value: progress,
       backgroundColor: const Color(0xFF9F86C0),
-      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
       minHeight: 6,
     );
   }
 
-  Widget _buildOption(String label, String selected, void Function(String) onSelect) {
-    final isSelected = selected == label;
+  Widget _buildOption(String text) {
+    final isSelected = selectedFrequency == text;
 
     return GestureDetector(
-      onTap: () => onSelect(label),
+      onTap: () => setState(() => selectedFrequency = text),
       child: Container(
         width: double.infinity,
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(vertical: 20),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF9F86C0) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFF9F86C0), width: 2),
         ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.white : const Color(0xFF9F86C0),
-            ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF9F86C0),
           ),
+          textAlign: TextAlign.center,
         ),
       ),
     );
