@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class OnboardingData {
+  int? id;
   String? firstName;
   String? lastName;
   String? gender;
@@ -14,8 +15,12 @@ class OnboardingData {
   String? proficiencyLevel;
   String? practiceFrequency;
   List<String>? interests;
+  String? profileImage;
+
+  Object get name => firstName! + ' ' + lastName!;
 
   Map<String, dynamic> toJson() => {
+    'id': id,
     'first_name': firstName,
     'last_name': lastName,
     'email': email,
@@ -26,6 +31,7 @@ class OnboardingData {
     'proficiency_level': proficiencyLevel?.toUpperCase(),
     'practice_frequency': practiceFrequency,
     'interests': interests,
+    'profile_image': profileImage,
   };
 }
 
@@ -35,6 +41,7 @@ class OnboardingProvider with ChangeNotifier {
   OnboardingData get data => _data;
 
   void clearAll() {
+    _data.id = null;
     _data.firstName = null;
     _data.lastName = null;
     _data.gender = null;
@@ -48,6 +55,7 @@ class OnboardingProvider with ChangeNotifier {
     _data.proficiencyLevel = null;
     _data.practiceFrequency = null;
     _data.interests = null;
+    _data.profileImage = null;
     notifyListeners();
   }
 }
