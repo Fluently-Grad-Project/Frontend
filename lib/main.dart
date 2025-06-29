@@ -1,3 +1,6 @@
+import 'package:fluently_frontend/screens/Profile/profile_page.dart';
+import 'package:fluently_frontend/screens/friends/friends_page.dart';
+import 'package:fluently_frontend/screens/matchmaking/matchmaking_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -57,6 +60,10 @@ class MyApp extends StatelessWidget {
         '/account-created': (context) => const AccountCreatedPage(firstName: 'User'),
         '/home': (context) => const HomePage(),
         '/forgot-password': (context) =>  ForgotPasswordPage(),
+        '/chat': (context) => const MatchmakingPage(),
+        // '/ai': (context) => const AiPage(),
+        '/account': (context) => MyProfilePage(),
+        '/friends': (context) => const FriendsPage(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/reset-password') {
