@@ -39,8 +39,6 @@ class _LoginPageState extends State<LoginPage> {
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("token", accessToken);
-
-      // 🔥 Decode JWT to get user_id
       Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
       final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
 
@@ -99,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                       obscureText: obscurePassword,
                       onChanged: (val) => password = val,
                       validator: (val) =>
-                      val!.length < 6 ? 'Minimum 6 characters' : null,
+                      val!.length < 8 ? 'Minimum 8 characters' : null,
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
                         hintStyle: const TextStyle(color: Color(0xFFA2A2A2)),
