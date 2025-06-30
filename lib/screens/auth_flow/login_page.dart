@@ -6,6 +6,9 @@ import 'dart:convert';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import '../../services/google_auth_service.dart';
+import 'package:provider/provider.dart';
+import '../../providers/user_provider.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -32,9 +35,17 @@ class _LoginPageState extends State<LoginPage> {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      final accessToken = data["access_token"];
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("token", data["access_token"]);
+      await prefs.setString("token", accessToken);
+
+      // 🔥 Decode JWT to get user_id
+      Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
+      final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
+
       if (context.mounted) {
+        await context.read<UserProvider>().fetchById(userId);
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else {

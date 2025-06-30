@@ -34,13 +34,19 @@ class _MyProfilePageState extends State<MyProfilePage> {
 
 
   Future<void> _showEditProfileDialog(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context).current;
+    final user = Provider.of<UserProvider>(context, listen: false).current;
     final TextEditingController firstNameController = TextEditingController(text: user!.firstName);
     final TextEditingController lastNameController = TextEditingController(text: user.lastName);
     String? selectedGender = user!.gender ?? 'GenderEnum.MALE';
     String? selectedProficiency = user.proficiency ?? 'BEGINNER';
     File? selectedImage;
     List<String> selectedInterests = List.from(user.interests ?? []);
+    if (selectedGender == "male") {
+      selectedGender = 'GenderEnum.MALE';;
+    }
+    else if (selectedGender == "female") {
+      selectedGender = 'GenderEnum.FEMALE';
+    }
 
 
 
