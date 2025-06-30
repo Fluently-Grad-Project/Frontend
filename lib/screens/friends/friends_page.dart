@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import '../../services/refresh_token_service.dart';
 import 'chat_page.dart';
 
 
@@ -40,6 +41,7 @@ class _FriendsPageState extends State<FriendsPage> {
     _loadInitialData(); // Renamed for clarity
   }
 
+
   // Fetches the initial full list of users
   Future<void> _loadInitialData() async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
@@ -48,6 +50,7 @@ class _FriendsPageState extends State<FriendsPage> {
     setState(() {
       _isLoading = true;
     });
+    refreshToken();
 
     String url = "http://10.0.2.2:8000/friends/get-friend-list";
     try {

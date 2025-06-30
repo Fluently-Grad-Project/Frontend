@@ -2,6 +2,8 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:fluently_frontend/services/refresh_token_service.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter/material.dart';
@@ -13,7 +15,8 @@ import 'package:fluently_frontend/screens/friends/friend_profile.dart';
 
 // Adjust path as needed
 import '../../models/user_model.dart';
-import '../../providers/onboarding_provider.dart';
+
+import '../../providers/user_provider.dart';
 
 // --- Placeholder for current user info ---
 // In a real app, this would come from your auth service/state management
@@ -42,16 +45,6 @@ MessageStatus _parseMessageStatus(String? statusStr) {
   }
 }
 
-String _messageStatusToString(MessageStatus status) {
-  switch (status) {
-    case MessageStatus.sending: return 'sending';
-    case MessageStatus.sent: return 'sent';
-    case MessageStatus.delivered: return 'delivered';
-    case MessageStatus.read: return 'read';
-    case MessageStatus.failed: return 'failed';
-    case MessageStatus.none: return 'none';
-  }
-}
 
 
 class ChatMessage {
@@ -163,7 +156,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    _fetchChatHistory();
+    _loadInitialData();
     _connectWebSocket();
   }
 
@@ -174,9 +167,21 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+
+  Future<void> _loadInitialData() async {
+    await _fetchChatHistory(); // Wait for history to load
+    // After history is fetched and messages are populated
+    if (mounted && _messages.isNotEmpty) {
+      // Mark messages from the current chatUser as read
+      _markMessagesAsRead(widget.chatUser.id);
+    }
+  }
+
   Future<void> _fetchChatHistory() async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+
+    final currentUser = Provider.of<UserProvider>(context, listen: false);
+    print("got token : ${prefs.get("token")}");
 
 
     if (_isLoadingHistory) return;
@@ -191,15 +196,17 @@ class _ChatPageState extends State<ChatPage> {
         Uri.parse('http://10.0.2.2:8000/chat/history?receiver_id=${widget.chatUser.id}'),
         headers: {
           'Authorization': 'Bearer ${prefs.getString("token")}',
-          'Content-Type': 'application/json',
         },
       );
+      print("sent api");
 
 
       if (response.statusCode == 200) {
         List<dynamic> historyJson = jsonDecode(response.body);
+        print("fetched  :" + historyJson.toString());
+        print("user id : " + currentUser.current!.id.toString());
         final List<ChatMessage> historyMessages = historyJson
-            .map((json) => ChatMessage.fromHistoryJson(json, onboardingProvider.data.id!))
+            .map((json) => ChatMessage.fromHistoryJson(json,  currentUser.current!.id))
             .toList();
 
         if (mounted) {
@@ -208,6 +215,10 @@ class _ChatPageState extends State<ChatPage> {
             _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Newest first
           });
         }
+      }
+      else if (response.statusCode == 401) {
+        refreshToken();
+        _fetchChatHistory();
       } else {
         // Handle error (e.g., show a Snackbar)
         print('Failed to load chat history: ${response.statusCode} ${response.body}');
@@ -233,11 +244,118 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+
+  Future<void> _markMessagesAsRead(int senderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('token');
+
+    if (token == null) {
+      print("ChatPage: Cannot mark messages as read. User not authenticated.");
+      // Optionally show a message to the user or attempt refresh token logic
+      return;
+    }
+
+    // Check if there are any unread messages from this sender before making the call
+    bool hasUnreadMessagesFromSender = _messages.any((msg) =>
+    !msg.isSentByMe && // Message is received
+        msg.senderId == senderId && // From the specific sender
+        msg.status != MessageStatus.read && // Is not already read
+        msg.status != MessageStatus.sending && // Not a client-side only status
+        msg.status != MessageStatus.failed
+    );
+
+    if (!hasUnreadMessagesFromSender) {
+      print("ChatPage: No unread messages from sender $senderId to mark as read.");
+      return;
+    }
+
+    final String apiUrl = "http://10.0.2.2:8000/chat/mark-as-read/$senderId";
+    print("ChatPage: Marking messages from sender $senderId as read. URL: $apiUrl");
+
+    try {
+      final dio = Dio(); // You might want to use a shared Dio instance
+      final response = await dio.post(
+        apiUrl,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) { // 204 No Content is also a success
+        print("ChatPage: Successfully marked messages from sender $senderId as read via API.");
+        if (mounted) {
+          setState(() {
+            for (var message in _messages) {
+              if (!message.isSentByMe && message.senderId == senderId && message.status != MessageStatus.read) {
+                message.status = MessageStatus.read;
+              }
+            }
+            // Optional: If you sort messages by status or have UI elements dependent on read counts,
+            // you might need to re-sort or explicitly trigger UI updates here.
+            // For now, updating individual message.status should be picked up by ListView.builder.
+          });
+        }
+      } else if (response.statusCode == 401) {
+        print("ChatPage: Unauthorized to mark messages as read. Attempting token refresh.");
+        bool refreshed = await refreshToken(); // Assuming refreshToken() is accessible
+        if (refreshed) {
+          _markMessagesAsRead(senderId); // Retry after successful refresh
+        } else {
+          print("ChatPage: Token refresh failed. Could not mark messages as read.");
+          if(mounted){
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please try again.'),backgroundColor: Colors.orange,),
+            );
+          }
+        }
+      }
+      else {
+        print("ChatPage: Failed to mark messages as read. Status: ${response.statusCode}, Body: ${response.data}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not update read status: ${response.statusCode}')),
+          );
+        }
+      }
+    } on DioException catch (e) {
+      print("ChatPage: DioException marking messages as read: ${e.message}");
+      if (e.response?.statusCode == 401) {
+        print("ChatPage: Unauthorized (DioException). Attempting token refresh.");
+        bool refreshed = await refreshToken();
+        if (refreshed) {
+          _markMessagesAsRead(senderId); // Retry
+        } else {
+          print("ChatPage: Token refresh failed (DioException).");
+          if(mounted){
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please try again.'),backgroundColor: Colors.orange,),
+            );
+          }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating read status: ${e.message}')),
+        );
+      }
+    }
+    catch (e) {
+      print("ChatPage: Unexpected error marking messages as read: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _connectWebSocket() async {
     if (_isConnectedToWebSocket || _channel != null) return; // Already connected or trying
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+    final currentUser = Provider.of<UserProvider>(context, listen: false);
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
+    refreshToken();
     final wsUrl = Uri.parse('ws://10.0.2.2:8000/ws/chat?token=${prefs.getString("token")}');
     print("ChatPage: Attempting to connect to WebSocket: $wsUrl");
     setState(() {
@@ -362,7 +480,7 @@ class _ChatPageState extends State<ChatPage> {
           }
 
           // Check if the sender is me (based on name)
-          if (potentialEchoSenderName == onboardingProvider.data.name) {
+          if (potentialEchoSenderName == currentUser.current!.name) {
             final recentlySentMessageIndex = _messages.indexWhere((m) =>
             m.isSentByMe &&
                 m.text == potentialEchoTextContent &&
@@ -392,7 +510,7 @@ class _ChatPageState extends State<ChatPage> {
 
           final newMessage = ChatMessage.fromWebSocketString(
             receivedString,
-            onboardingProvider.data.id!,
+            currentUser.current!.id!,
             widget.chatUser,
           );
 
@@ -463,7 +581,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _sendMessage() {
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+    final currentUser = Provider.of<UserProvider>(context, listen: false);
     if (_messageController.text.trim().isEmpty) return;
     if (_channel == null || !_isConnectedToWebSocket) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -475,7 +593,7 @@ class _ChatPageState extends State<ChatPage> {
       final clientMessageId = _generateClientMessageId();
       final newMessage = ChatMessage(
         id: clientMessageId,
-        senderId: onboardingProvider.data.id!,
+        senderId: currentUser.current!.id!,
         receiverId: widget.chatUser.id,
         text: _messageController.text.trim(),
         timestamp: DateTime.now(),
@@ -495,7 +613,7 @@ class _ChatPageState extends State<ChatPage> {
     // Add to UI optimistically with 'sending' status
     final newMessage = ChatMessage(
       id: clientMessageId,
-      senderId: onboardingProvider.data.id!,
+      senderId: currentUser.current!.id!,
       receiverId: widget.chatUser.id,
       text: messageText,
       timestamp: DateTime.now(),
@@ -617,7 +735,7 @@ class _ChatPageState extends State<ChatPage> {
 // Continuing in _ChatPageState
 
   Widget build(BuildContext context) {
-    final onboardingProvider = Provider.of<OnboardingProvider>(context);
+    final currentUser = Provider.of<UserProvider>(context);
     final bool canPop = Navigator.canPop(context);
     const Color headerColor = Color.fromARGB(255, 159, 134, 192); // Fluently purple
 
@@ -717,7 +835,7 @@ class _ChatPageState extends State<ChatPage> {
                   final message = _messages[index];
                   // Determine if sender name should be shown (for received messages from other users)
                   bool showSenderName = !message.isSentByMe &&
-                      message.senderId != onboardingProvider.data.id! && // Should always be true for !isSentByMe
+                      message.senderId != currentUser.current!.id! && // Should always be true for !isSentByMe
                       widget.chatUser.name.isNotEmpty; // Or use a senderName field if available from WS
 
                   return Align(

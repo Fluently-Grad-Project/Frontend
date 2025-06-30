@@ -36,15 +36,20 @@ class _LoginPageState extends State<LoginPage> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final accessToken = data["access_token"];
+      final refreshToken = data["refresh_token"];
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString("token", accessToken);
+      await prefs.setString("refresh_token", refreshToken);
+
+      // 🔥 Decode JWT to get user_id
       Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
       final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
 
       if (context.mounted) {
         await context.read<UserProvider>().fetchById(userId);
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (Route<dynamic> route) => false);
+
       }
     } else {
       final error = jsonDecode(response.body);
@@ -97,7 +102,7 @@ class _LoginPageState extends State<LoginPage> {
                       obscureText: obscurePassword,
                       onChanged: (val) => password = val,
                       validator: (val) =>
-                      val!.length < 8 ? 'Minimum 8 characters' : null,
+                      val!.length < 6 ? 'Minimum 6 characters' : null,
                       decoration: InputDecoration(
                         hintText: 'Enter your password',
                         hintStyle: const TextStyle(color: Color(0xFFA2A2A2)),

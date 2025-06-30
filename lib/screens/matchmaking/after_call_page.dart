@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:fluently_frontend/services/refresh_token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -190,7 +191,11 @@ class _AfterCallPageState extends State<AfterCallPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Friend request sent to $recipientName!'), backgroundColor: const Color(0xFFA58DCA)),
         );
-      } else {
+      } else if (response.statusCode == 401){
+        refreshToken();
+        _sendFriendRequest(context, recipientUserId, recipientName);
+
+  }else {
         print('Error sending friend request: ${response.statusCode} - ${response.data}');
         setState(() {
           _friendRequestError = 'Error: ${response.statusCode}. Please try again.';
@@ -317,7 +322,12 @@ class _AfterCallPageState extends State<AfterCallPage> {
             backgroundColor: const Color(0xFFA58DCA),
           ),
         );
-      } else {
+      }else if(response.statusCode == 401){
+        refreshToken();
+        _reportUserApiCall( userIdToReport, reason, scaffoldContext, reportedUserName);
+
+      }
+        else {
         ScaffoldMessenger.of(scaffoldContext).showSnackBar(
           SnackBar(content: Text('Error reporting: ${response.statusCode}'), backgroundColor: Colors.red),
         );
@@ -381,7 +391,11 @@ class _AfterCallPageState extends State<AfterCallPage> {
           _isSubmittingRating = false;
         });
         // Optionally, refresh: await _fetchUserRating(_user!.id);
-      } else {
+      } else if (response.statusCode == 401){
+        refreshToken();
+        _submitRating(ratingToSubmit);
+      }
+        else {
         print("Error submitting rating: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to submit rating. Status: ${response.statusCode}.";
         if (response.data != null && response.data['detail'] != null) {
@@ -684,7 +698,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
 
                     // --- Rating Section Title ---
                     Text(
-                      "Your Rating for ${userToDisplay.firstName ?? userToDisplay.name}",
+                      "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 20,

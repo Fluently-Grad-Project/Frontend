@@ -5,7 +5,9 @@ import 'package:fluently_frontend/models/user_model.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../providers/onboarding_provider.dart';
+import '../../services/refresh_token_service.dart';
+
+
 
 
 
@@ -96,7 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _blockUserApiCall(String userIdToBlock, String userName) async {
     // Use 10.0.2.2 for Android Emulator to connect to localhost on your machine
-    final onboardingProvider = Provider.of<OnboardingProvider>(context);
+
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final String blockUserApiUrl = "http://10.0.2.2:8000/users/block-user/$userIdToBlock";
     print("Attempting to block user $userIdToBlock at $blockUserApiUrl");
@@ -128,6 +130,9 @@ class _ProfilePageState extends State<ProfilePage> {
          if (Navigator.canPop(context)) {
            Navigator.pop(context);
          }
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _blockUserApiCall( userIdToBlock,  userName);
       } else {
         print("Error blocking user: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to block $userName. Status: ${response.statusCode}.";
@@ -292,6 +297,9 @@ class _ProfilePageState extends State<ProfilePage> {
             backgroundColor: const Color(0xFFA58DCA),
           ),
         );
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _reportUserApiCall(userIdToReport, reason, scaffoldContext, reportedUserName);
       } else {
         ScaffoldMessenger.of(scaffoldContext).showSnackBar(
           SnackBar(content: Text('Error reporting: ${response.statusCode}'), backgroundColor: Colors.red),
@@ -345,6 +353,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _fetchedUserRating = ratingToSubmit;
           _isLoadingRating = false; // Rating is now set
         });
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _submitRating(ratingToSubmit);
       } else {
         print("Error submitting rating: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to submit rating. Status: ${response.statusCode}.";

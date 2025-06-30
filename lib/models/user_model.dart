@@ -27,6 +27,8 @@ class User {
   String? full_name;
   bool? is_verified;
   double? rating;
+  //todo
+  String? proficiency;
 
   User({
     required this.id,
@@ -83,6 +85,4 @@ class User {
     }
     return "Unknown User";
   }
-
-  get proficiency => null;
 }

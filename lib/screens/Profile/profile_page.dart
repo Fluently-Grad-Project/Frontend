@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:fluently_frontend/services/refresh_token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:image_picker/image_picker.dart';
@@ -41,16 +42,17 @@ class _MyProfilePageState extends State<MyProfilePage> {
     String? selectedProficiency = user.proficiency ?? 'BEGINNER';
     File? selectedImage;
     List<String> selectedInterests = List.from(user.interests ?? []);
-    if (selectedGender == "male") {
-      selectedGender = 'GenderEnum.MALE';;
+
+    if (selectedGender == 'MALE' || selectedGender == 'GenderEnum.MALE' || selectedGender == 'male' || selectedGender == 'Male')  {
+      selectedGender = 'Male';
     }
-    else if (selectedGender == "female") {
-      selectedGender = 'GenderEnum.FEMALE';
+    else if (selectedGender == 'FEMALE' || selectedGender == 'GenderEnum.FEMALE' || selectedGender == 'female' || selectedGender == 'Female') {
+      selectedGender = 'Female';
     }
 
 
 
-    final List<String> genderOptions = ['GenderEnum.MALE', 'GenderEnum.FEMALE'];
+    final List<String> genderOptions = ['Male', 'Female'];
     final List<String> proficiencyLevels = ['BEGINNER', 'INTERMEDIATE', 'FLUENT'];
 
     return showDialog<void>(
@@ -76,21 +78,21 @@ class _MyProfilePageState extends State<MyProfilePage> {
                       decoration: const InputDecoration(labelText: 'Last Name'),
                     ),
                     const SizedBox(height: 10),
-                   DropdownButtonFormField<String>(
-                     value: selectedGender,
-                     decoration: const InputDecoration(labelText: 'Gender'),
-                     items: genderOptions.map((String value) {
-                       return DropdownMenuItem<String>(
-                         value: value,
-                         child: Text(value.split('.').last),
-                       );
-                     }).toList(),
-                     onChanged: (String? newValue) {
-                       setDialogState(() {
-                         selectedGender = newValue;
-                       });
-                     },
-                   ),
+                  DropdownButtonFormField<String>(
+                    value: selectedGender,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: genderOptions.map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setDialogState(() {
+                        selectedGender = newValue;
+                      });
+                    },
+                  ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       value: selectedProficiency,
@@ -203,6 +205,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   }
 
   Future<void> _uploadProfileImageApiCall(File imageFile, BuildContext pageContext) async {
+    refreshToken();
     String uploadProfileImageApiUrl = "http://10.0.2.2:8000/auth/upload-profile-picture";
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     try {
@@ -259,6 +262,10 @@ class _MyProfilePageState extends State<MyProfilePage> {
 
 
       }
+      else if(response.statusCode == 401) {
+        refreshToken();
+        _updateProfileApiCall(data, pageContext);
+      }
     } catch (e) {
       ScaffoldMessenger.of(pageContext).showSnackBar(
         SnackBar(content: Text('An error occurred while updating: ${e.toString()}'), backgroundColor: Colors.red),
@@ -308,6 +315,11 @@ class _MyProfilePageState extends State<MyProfilePage> {
           const SnackBar(content: Text('Logged out successfully.'), backgroundColor: Colors.green),
         );
         Navigator.pushReplacementNamed(context, '/login');
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _logoutApiCall(context);
+      } else {
+        print('Logout failed with status code: ${response.statusCode}');
       }
     }catch (e) {
       print('Error logging out: $e');

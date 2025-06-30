@@ -1,7 +1,9 @@
 import 'package:fluently_frontend/providers/user_provider.dart';
 import 'package:fluently_frontend/screens/Profile/profile_page.dart';
+
 import 'package:fluently_frontend/screens/friends/friends_page.dart';
 import 'package:fluently_frontend/screens/matchmaking/matchmaking_page.dart';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -32,6 +34,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => OnboardingProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+
       ],
       child: const MyApp(),
     ),
@@ -43,6 +46,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = Provider.of<UserProvider>(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Fluently',

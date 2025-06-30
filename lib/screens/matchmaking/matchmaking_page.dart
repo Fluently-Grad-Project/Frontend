@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:fluently_frontend/screens/friends/chat_page.dart';
+import 'package:fluently_frontend/services/refresh_token_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart'; // Keep if you use rating bar in profile or elsewhere
 import 'package:shared_preferences/shared_preferences.dart';
@@ -95,6 +96,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     String matchmakingUrl = "http://10.0.2.2:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
+    refreshToken();
     try {
       print("MatchmakingPage: Fetching matched user IDs from: $matchmakingUrl");
       Response matchmakingRes = await _dio.get(
