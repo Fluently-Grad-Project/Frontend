@@ -1,3 +1,4 @@
+import 'package:fluently_frontend/providers/user_provider.dart';
 import 'package:fluently_frontend/screens/Profile/profile_page.dart';
 import 'package:fluently_frontend/screens/friends/friends_page.dart';
 import 'package:fluently_frontend/screens/matchmaking/matchmaking_page.dart';
@@ -30,6 +31,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => OnboardingProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: const MyApp(),
     ),

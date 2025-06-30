@@ -29,25 +29,29 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onItemTapped(int index) {
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const UserChatRequestPage()),
-      );
-      return;
-    }
-
-    if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const AIChatPage()),
-      );
-      return;
-    }
+    if (_selectedIndex == index) return;
 
     setState(() {
       _selectedIndex = index;
     });
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(context, '/home');
+        break;
+      case 1:
+        Navigator.pushReplacementNamed(context, '/friends');
+        break;
+      case 2:
+      // Already on Matchmaking page
+        break;
+      case 3:
+        Navigator.pushReplacementNamed(context, '/ai');
+        break;
+      case 4:
+        Navigator.pushReplacementNamed(context, '/account');
+        break;
+    }
   }
 
 
