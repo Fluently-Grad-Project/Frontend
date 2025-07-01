@@ -175,8 +175,31 @@ class _SignUpPageState extends State<SignUpPage> {
                 TextFormField(
                   obscureText: obscurePassword,
                   onChanged: (val) => onboardingProvider.data.password = val,
-                  validator: (val) =>
-                  val!.length < 8 ? 'Min 8 characters' : null,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) {
+                      return 'Password cannot be empty';
+                    }
+                    if (val.length < 8) {
+                      return 'Password must be at least 8 characters';
+                    }
+                    // At least 1 uppercase letter
+                    if (!RegExp(r'[A-Z]').hasMatch(val)) {
+                      return 'Password must contain at least 1 uppercase letter';
+                    }
+                    // At least 1 lowercase letter
+                    if (!RegExp(r'[a-z]').hasMatch(val)) {
+                      return 'Password must contain at least 1 lowercase letter';
+                    }
+                    // At least 1 number
+                    if (!RegExp(r'\d').hasMatch(val)) {
+                      return 'Password must contain at least 1 number';
+                    }
+                    // At least 1 special character
+                    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(val)) {
+                      return 'Password must contain at least 1 special character';
+                    }
+                    return null;
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter your password',
                     hintStyle: const TextStyle(color: Color(0xFFA2A2A2)),
@@ -184,9 +207,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     fillColor: Colors.white,
                     suffixIcon: IconButton(
                       icon: Icon(
-                        obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                        obscurePassword ? Icons.visibility_off : Icons.visibility,
                         color: Colors.grey,
                       ),
                       onPressed: () {
