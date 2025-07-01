@@ -1,3 +1,5 @@
+import 'package:fluently_frontend/screens/auth_flow/terms_and_conditions_page.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'language_selection_page.dart';
@@ -220,40 +222,54 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 16),
-
+                const SizedBox(height: 24),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: () =>
-                          setState(() => acceptedTerms = !acceptedTerms),
+                      onTap: () => setState(() => acceptedTerms = !acceptedTerms),
                       child: CircleAvatar(
                         radius: 12,
                         backgroundColor: acceptedTerms
                             ? const Color(0xFF9F86C0)
                             : Colors.white,
                         child: acceptedTerms
-                            ? const Icon(Icons.check,
-                            size: 16, color: Colors.white)
-                            : const Icon(Icons.circle_outlined,
-                            size: 16, color: Colors.grey),
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : const Icon(Icons.circle_outlined, size: 16, color: Colors.grey),
                       ),
                     ),
-                    const SizedBox(width: 20),
-                    const Expanded(
-                      child: Text(
-                        'I accept the terms and privacy policy',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF9F86C0),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF9F86C0),
+                          ),
+                          children: [
+                            const TextSpan(text: 'I accept the '),
+                            TextSpan(
+                              text: 'terms and privacy policy',
+                              style: const TextStyle(
+                                decoration: TextDecoration.underline,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF9F86C0),
+                              ),
+                              recognizer: TapGestureRecognizer()
+                                ..onTap = () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const TermsAndConditionsPage()),
+                                  );
+                                },
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: goToLanguageSelectionPage,
