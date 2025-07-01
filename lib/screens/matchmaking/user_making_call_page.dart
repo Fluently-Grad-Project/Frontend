@@ -1,10 +1,13 @@
+import 'package:besso_fluently/screens/matchmaking/user_accept_call_page.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 import 'package:lottie/lottie.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class UserMakingCallPage extends StatefulWidget {
-  const UserMakingCallPage({Key? key}) : super(key: key);
+  final int userId;
+  final String userName;
+  const UserMakingCallPage({Key? key, required this.userId, required this.userName}) : super(key: key);
 
   @override
   State<UserMakingCallPage> createState() => _UserMakingCallPageState();
@@ -17,6 +20,28 @@ class _UserMakingCallPageState extends State<UserMakingCallPage> {
   void initState() {
     super.initState();
     _playCallingSound();
+
+    // Simulate callee response after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+
+      // Change this bool to true or false to test accept or decline
+      bool calleeAccepted = true; // set false to test decline behavior
+
+      if (calleeAccepted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserAcceptCallPage(
+              userId: widget.userId,
+              userName: widget.userName,
+            ),
+          ),
+        );
+      } else {
+        Navigator.pop(context); // Go back to MatchmakingPage on decline
+      }
+    });
   }
 
   Future<void> _playCallingSound() async {
@@ -77,19 +102,19 @@ class _UserMakingCallPageState extends State<UserMakingCallPage> {
                     height: 40,
                   ),
                   const SizedBox(width: 10),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Calling Bassant...',
-                        style: TextStyle(
+                        'Calling ${widget.userName}...',
+                        style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Text(
+                      const Text(
                         'Ringing',
                         style: TextStyle(
                           fontSize: 12,

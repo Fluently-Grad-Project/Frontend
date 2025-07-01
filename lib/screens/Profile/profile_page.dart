@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 
+
 class MyProfilePage extends StatefulWidget {
 
   const MyProfilePage({super.key});
@@ -203,7 +204,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   }
 
   Future<void> _uploadProfileImageApiCall(File imageFile, BuildContext pageContext) async {
-    String uploadProfileImageApiUrl = "http://10.0.2.2:8000/auth/upload-profile-picture";
+    String uploadProfileImageApiUrl = "http://192.168.1.53:8000/auth/upload-profile-picture";
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     try {
       final response = await _dio.post(
@@ -226,7 +227,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
     final currentUser = Provider.of<UserProvider>(context, listen: false);
 
 
-    const String updateProfileApiUrl = "http://10.0.2.2:8000/users/update-profile";
+    const String updateProfileApiUrl = "http://192.168.1.53:8000/users/update-profile";
 
     ScaffoldMessenger.of(pageContext).showSnackBar(
       const SnackBar(content: Text('Updating profile...'), duration: Duration(seconds: 1)),
@@ -286,7 +287,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   }
 
   Future<void> _logoutApiCall(BuildContext context) async {
-    const String logoutApiUrl = "http://10.0.2.2:8000/users/logout";
+    const String logoutApiUrl = "http://192.168.1.53:8000/users/logout";
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
     ScaffoldMessenger.of(context).showSnackBar(

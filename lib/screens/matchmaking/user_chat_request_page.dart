@@ -1,16 +1,15 @@
-import 'package:fluently_frontend/screens/user_accept_call_page.dart';
+import 'user_accept_call_page.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:vibration/vibration.dart';
 import 'dart:async';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-
-
-
 class UserChatRequestPage extends StatefulWidget {
-  const UserChatRequestPage({Key? key}) : super(key: key);
+  final int callerId;
+  final String callerName;
 
+  const UserChatRequestPage({Key? key, required this.callerId, required this.callerName}) : super(key: key);
   @override
   State<UserChatRequestPage> createState() => _UserChatRequestPageState();
 }
@@ -21,7 +20,6 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
   late AudioPlayer _audioPlayer;
   late Timer _autoDismissTimer;
 
-
   @override
   void initState() {
     super.initState();
@@ -29,8 +27,7 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
     _playRingtone();
     _startAutoDismissTimer();
 
-    // Keep the screen on
-    WakelockPlus.enable();
+    WakelockPlus.enable(); // Keep screen awake
   }
 
   void _startAutoDismissTimer() {
@@ -48,19 +45,18 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
     await _audioPlayer.play(AssetSource('iphone_ringtone.mp3'));
 
     if (await Vibration.hasVibrator() ?? false) {
-      Vibration.vibrate(pattern: [0, 500, 1000],
-          repeat: 0); // Vibrate pattern: vibrate 500ms, pause 1000ms, repeat
+      Vibration.vibrate(pattern: [0, 500, 1000], repeat: 0);
     }
   }
 
   void _stopRingtone() async {
     await _audioPlayer.stop();
-    Vibration.cancel(); // Stop vibration
+    Vibration.cancel();
   }
 
   void _animateButton(Function action, bool isAccept) {
-    _stopRingtone(); // stop ringtone on any action
-    _autoDismissTimer.cancel(); // cancel auto dismiss
+    _stopRingtone();
+    _autoDismissTimer.cancel();
     setState(() {
       if (isAccept) {
         _acceptScale = 0.9;
@@ -82,13 +78,9 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
     _stopRingtone();
     _autoDismissTimer.cancel();
     _audioPlayer.dispose();
-
-    // Allow screen to sleep again
-    WakelockPlus.disable();
-
+    WakelockPlus.disable(); // Allow screen to sleep again
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -139,9 +131,9 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
                           height: 130,
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          "Bassant",
-                          style: TextStyle(
+                        Text(
+                          widget.callerName,
+                          style: const TextStyle(
                             fontFamily: 'Nunito',
                             fontSize: 18,
                             color: Colors.black87,
@@ -153,27 +145,26 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Decline Button with Glow
                         _buildGlowingButton(
                           iconPath: 'assets/decline-icon.png',
-                          onTap: () =>
-                              _animateButton(() => Navigator.pop(context),
-                                  false),
+                          onTap: () => _animateButton(() => Navigator.pop(context), false),
                           scale: _declineScale,
                           glowColor: Colors.redAccent,
                         ),
                         const SizedBox(width: 135),
-                        // Accept Button with Glow
                         _buildGlowingButton(
                           iconPath: 'assets/accept-icon.png',
-                          onTap: () =>
-                              _animateButton(() {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (
-                                      context) => const UserAcceptCallPage()),
-                                );
-                              }, true),
+                          onTap: () => _animateButton(() {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserAcceptCallPage(
+                                  userId: widget.callerId,
+                                  userName: widget.callerName,
+                                ),
+                              ),
+                            );
+                          }, true),
                           scale: _acceptScale,
                           glowColor: Colors.green,
                         ),
@@ -198,7 +189,6 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
   }) {
     return TweenAnimationBuilder(
       tween: Tween<double>(begin: 0.0, end: 4.0),
-      // Reduced blur
       duration: const Duration(seconds: 1),
       curve: Curves.easeInOut,
       builder: (context, radius, child) {
@@ -213,9 +203,9 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: glowColor.withOpacity(0.15), // Dimmer opacity
+                    color: glowColor.withOpacity(0.15),
                     blurRadius: radius,
-                    spreadRadius: 0.3, // Smaller spread
+                    spreadRadius: 0.3,
                   ),
                 ],
               ),
@@ -228,7 +218,7 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
           ),
         );
       },
-      onEnd: () => setState(() {}), // Loop animation
+      onEnd: () => setState(() {}),
     );
   }
 }

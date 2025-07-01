@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 Firestore import
+
 import '../../../providers/onboarding_provider.dart';
 
 class AccountCreatedPage extends StatefulWidget {
@@ -29,14 +32,51 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
         listen: false,
       ).data;
 
+      if (onboardingData.email == null || onboardingData.password == null) {
+        setState(() {
+          _errorMessage = 'Email and password are required.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Step 1: Firebase signup
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+        email: onboardingData.email!,
+        password: onboardingData.password!,
+      );
+
+      final firebaseUid = userCredential.user?.uid;
+      if (firebaseUid == null) {
+        throw Exception("Firebase UID is null");
+      }
+
+      // Step 2: Prepare payload for backend
+      final userPayload = onboardingData.toJson();
+      userPayload['firebase_uid'] = firebaseUid;
+
+      // Step 3: Send to backend
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/users/register'),
+        Uri.parse('http://192.168.1.53:8000/users/register'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(onboardingData.toJson()),
+        body: jsonEncode(userPayload),
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Success! Navigate to home
+        final responseData = jsonDecode(response.body);
+        final userId = responseData['id'] ?? responseData['user_id'];
+
+        // ✅ Step 4: Store in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(firebaseUid)
+            .set({
+          'uid': firebaseUid,
+          'email': onboardingData.email,
+          'user_id': userId,
+        });
+
         if (mounted) {
           Navigator.pushNamed(context, '/home');
         }
@@ -46,8 +86,17 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
         });
       }
     } catch (e) {
+      String message = 'Error: ${e.toString()}';
+      if (e is FirebaseAuthException) {
+        if (e.code == 'email-already-in-use') {
+          message = 'Email is already registered.';
+        } else if (e.code == 'weak-password') {
+          message = 'The password is too weak.';
+        }
+      }
+
       setState(() {
-        _errorMessage = 'Network error: ${e.toString()}';
+        _errorMessage = message;
       });
     } finally {
       if (mounted) {

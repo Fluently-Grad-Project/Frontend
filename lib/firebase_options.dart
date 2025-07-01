@@ -50,20 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBc9vIJUkCljZLi3AkARIq62F_o1gXRplA',
-    appId: '1:919278100107:android:0e12183f459823e99ebe8e',
-    messagingSenderId: '919278100107',
-    projectId: 'fluently-d79a2',
-    storageBucket: 'fluently-d79a2.firebasestorage.app',
+    apiKey: 'AIzaSyC-Z0JxgkDI0z_zaLXaaMRvCq4QjHHh5TY',
+    appId: '1:765534486014:android:8ea5b5e0832fb7307594af',
+    messagingSenderId: '765534486014',
+    projectId: 'wordoftheday-b5a90',
+    storageBucket: 'wordoftheday-b5a90.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCru3C5IZokRJtuLaVn5dF1ySPfWM6xRW0',
-    appId: '1:919278100107:ios:d9203b0d162ea2fe9ebe8e',
-    messagingSenderId: '919278100107',
-    projectId: 'fluently-d79a2',
-    storageBucket: 'fluently-d79a2.firebasestorage.app',
-    iosClientId: '919278100107-6ifngb1mcnbom6gfr9ejrdk8lqnp53i2.apps.googleusercontent.com',
-    iosBundleId: 'com.maryamyasser.fluentlyFrontend',
+    apiKey: 'AIzaSyBjhH7KRBP2Z3dlqNiynFeTpoIW6rmuQeI',
+    appId: '1:765534486014:ios:2335bcef2bcf65097594af',
+    messagingSenderId: '765534486014',
+    projectId: 'wordoftheday-b5a90',
+    storageBucket: 'wordoftheday-b5a90.firebasestorage.app',
+    iosBundleId: 'com.example.bessoFluently',
   );
 }

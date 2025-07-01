@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'ai_call_page.dart';
 import 'home_page.dart';
+import 'chatbot_test.dart';
+
+const String geminiApiKey = 'AIzaSyB3aZtJbUB6u_qinP7FqInZRVKQI16QmhE';
 
 class AIChatPage extends StatefulWidget {
   const AIChatPage({Key? key}) : super(key: key);
@@ -13,39 +16,90 @@ class AIChatPage extends StatefulWidget {
 class _AIChatPageState extends State<AIChatPage> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = [];
-  int _selectedIndex = 3; // Default to AI tab
   final ScrollController _scrollController = ScrollController();
+  final List<String> _userMessages = [];
+  bool _isLoadingFeedback = false;
+  int _selectedIndex = 3;
 
-
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+
+    _userMessages.add(text);
 
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
       _controller.clear();
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeScrollToBottom();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeScrollToBottom());
+
+    final aiReply = await _fetchAIResponse(text);
+
+    setState(() {
+      _messages.add({'sender': 'ai', 'text': aiReply});
     });
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      setState(() {
-        _messages.add({
-          'sender': 'ai',
-          'text': _generateAIResponse(text),
-        });
-      });
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _maybeScrollToBottom();
-      });
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeScrollToBottom());
   }
 
-  String _generateAIResponse(String userMessage) {
-    return "You said: \"$userMessage\". I'm still learning!";
+  Future<String> _fetchAIResponse(String userMessage) async {
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: geminiApiKey,
+      );
+
+      final content = [Content.text(userMessage)];
+      final response = await model.generateContent(content);
+
+      return response.text ?? "No response from Gemini.";
+    } catch (e) {
+      print("Gemini error: $e");
+      return "Failed to get response from Gemini.";
+    }
+  }
+
+  Future<void> _getGrammarFeedback() async {
+    if (_userMessages.isEmpty) return;
+
+    setState(() {
+      _isLoadingFeedback = true;
+      _messages.add({'sender': 'ai', 'text': '🕐 Generating feedback...'});
+    });
+
+    final userText = _userMessages.join(" ");
+    final prompt = '''
+Check the following conversation for grammar and spelling mistakes.
+Provide friendly feedback and corrections:\n$userText
+''';
+
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: geminiApiKey,
+      );
+
+      final response = await model.generateContent([Content.text(prompt)]);
+      final feedback = response.text ?? "No feedback generated.";
+
+      setState(() {
+        _messages.removeLast(); // Remove loading message
+        _messages.add({'sender': 'ai', 'text': "📝 Feedback:\n$feedback"});
+        _isLoadingFeedback = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeScrollToBottom());
+    } catch (e) {
+      setState(() {
+        _messages.removeLast(); // Remove loading message
+        _messages.add({'sender': 'ai', 'text': "❗ Failed to get grammar feedback."});
+        _isLoadingFeedback = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeScrollToBottom());
+      print("Gemini feedback error: $e");
+    }
   }
 
   Widget _buildMessage(Map<String, String> message) {
@@ -56,9 +110,7 @@ class _AIChatPageState extends State<AIChatPage> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
         decoration: BoxDecoration(
-          color: isUser
-              ? const Color(0xFFD3D3D3) // User bubble: Light Gray
-              : const Color(0xFF9F86C0), // AI bubble: Lavender/Purple
+          color: isUser ? const Color(0xFFD3D3D3) : const Color(0xFF9F86C0),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
@@ -69,7 +121,7 @@ class _AIChatPageState extends State<AIChatPage> {
         child: Text(
           message['text'] ?? '',
           style: TextStyle(
-            color: isUser ? Colors.black : Colors.white, // Change based on sender
+            color: isUser ? Colors.black : Colors.white,
             fontSize: isUser ? 16 : 14,
             fontWeight: FontWeight.normal,
           ),
@@ -78,38 +130,9 @@ class _AIChatPageState extends State<AIChatPage> {
     );
   }
 
-  void _onItemTapped(int index) {
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
-    } else if (index == 1) {
-      Navigator.pushReplacementNamed(context, '/friends');
-    } else if (index == 2) {
-      Navigator.pushReplacementNamed(context, '/chat');
-    } else if (index == 3) {
-      // Already on AI Chat, no action needed
-    } else if (index == 4) {
-      Navigator.pushReplacementNamed(context, '/account');
-    }
-
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
   void _maybeScrollToBottom() {
-    // Only scroll if the user is near the bottom
     if (_scrollController.hasClients) {
-      final threshold = 100.0; // Allowable distance from bottom
+      final threshold = 100.0;
       final distanceFromBottom =
           _scrollController.position.maxScrollExtent - _scrollController.offset;
 
@@ -123,11 +146,44 @@ class _AIChatPageState extends State<AIChatPage> {
     }
   }
 
+  void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    if (index == 0) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else if (index == 1) {
+      Navigator.pushReplacementNamed(context, '/friends');
+    } else if (index == 2) {
+      Navigator.pushReplacementNamed(context, '/chat');
+    } else if (index == 3) {
+      // Already on AI page, do nothing
+    } else if (index == 4) {
+      Navigator.pushReplacementNamed(context, '/account');
+    }
+
+    print("HomePage: Navigating to index $index");
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        automaticallyImplyLeading: false, // <-- This removes the back arrow
+        automaticallyImplyLeading: false,
         title: const Text(
           'AI Chat',
           style: TextStyle(
@@ -142,13 +198,17 @@ class _AIChatPageState extends State<AIChatPage> {
         elevation: 2,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.spellcheck, color: Colors.black),
+            onPressed: _getGrammarFeedback,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AICallPage()),
+                  MaterialPageRoute(builder: (context) => AudioChatScreen()),
                 );
               },
               child: Image.asset(
@@ -207,35 +267,22 @@ class _AIChatPageState extends State<AIChatPage> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Friends',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Chat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.android),
-            label: 'AI',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle),
-            label: 'Account',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), label: 'AI'), // Changed icon
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF9F86C0),
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: const Color.fromARGB(255, 159, 134, 192),
+        unselectedItemColor: Colors.grey[600],
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
+        elevation: 5,
       ),
     );
   }
 }
-

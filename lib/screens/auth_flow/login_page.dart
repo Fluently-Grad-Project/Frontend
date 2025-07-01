@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -24,31 +25,54 @@ class _LoginPageState extends State<LoginPage> {
   bool obscurePassword = true;
   bool isLoading = false;
 
-  Future<void> loginWithBackend(String email, String password) async {
-    final url = Uri.parse("http://10.0.2.2:8000/auth/login");
+  Future<void> loginFirebaseAuthAndBackend(String email, String password) async {
+    try {
+      // Step 1: Firebase Login
+      final firebaseUser = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: email, password: password);
 
-    final response = await http.post(
-      url,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"email": email, "password": password}),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final accessToken = data["access_token"];
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("token", accessToken);
-      Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
-      final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
-
-      if (context.mounted) {
-        await context.read<UserProvider>().fetchById(userId);
-        Navigator.pushReplacementNamed(context, '/home');
+      final firebaseUid = firebaseUser.user?.uid;
+      if (firebaseUid == null) {
+        throw Exception("Failed to get Firebase UID.");
       }
-    } else {
-      final error = jsonDecode(response.body);
-      throw Exception(error['detail'] ?? "Login failed");
+
+      // Step 2: Backend Login
+      final url = Uri.parse("http://192.168.1.53:8000/auth/login");
+
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email, "password": password}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final accessToken = data["access_token"];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString("token", accessToken);
+
+        Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
+        final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
+
+        if (context.mounted) {
+          await context.read<UserProvider>().fetchById(userId);
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        final error = jsonDecode(response.body);
+        throw Exception(error['detail'] ?? "Login failed on backend.");
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        throw Exception("No user found with this email.");
+      } else if (e.code == 'wrong-password') {
+        throw Exception("Incorrect password.");
+      } else {
+        throw Exception("Firebase error: ${e.message}");
+      }
+    } catch (e) {
+      throw Exception(e.toString());
     }
   }
 
@@ -142,7 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                         if (_formKey.currentState!.validate()) {
                           setState(() => isLoading = true);
                           try {
-                            await loginWithBackend(email, password);
+                            await loginFirebaseAuthAndBackend(email, password);
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

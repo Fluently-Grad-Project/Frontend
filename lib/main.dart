@@ -1,13 +1,14 @@
-import 'package:fluently_frontend/providers/user_provider.dart';
-import 'package:fluently_frontend/screens/Profile/profile_page.dart';
-import 'package:fluently_frontend/screens/friends/friends_page.dart';
-import 'package:fluently_frontend/screens/matchmaking/matchmaking_page.dart';
+import 'package:besso_fluently/providers/onboarding_provider.dart';
+import 'package:besso_fluently/screens/Profile/profile_page.dart';
+import 'package:besso_fluently/screens/ai_chat_page.dart';
+import 'package:besso_fluently/screens/friends/friends_page.dart';
+import 'package:besso_fluently/screens/matchmaking/matchmaking_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
-import 'providers/onboarding_provider.dart';
-
+import 'package:besso_fluently/providers/user_provider.dart';
+import 'notification_service.dart';
 import 'screens/auth_flow/splash_page.dart';
 import 'screens/auth_flow/signup_page.dart';
 import 'screens/auth_flow/login_page.dart';
@@ -21,11 +22,13 @@ import 'screens/home_page.dart';
 import 'screens/auth_flow/forgot_password_page.dart';
 import 'screens/auth_flow/rest_password.dart';
 
-void main() async {
+Future <void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  final notificationService=NotificationService();
+  await notificationService.initFCM();
 
   runApp(
     MultiProvider(
@@ -63,7 +66,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/forgot-password': (context) =>  ForgotPasswordPage(),
         '/chat': (context) => const MatchmakingPage(),
-        // '/ai': (context) => const AiPage(),
+        '/ai': (context) => const AIChatPage(),
         '/account': (context) => MyProfilePage(),
         '/friends': (context) => const FriendsPage(),
       },

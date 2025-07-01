@@ -1,7 +1,8 @@
+import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
 import 'package:dio/dio.dart';
-import 'package:fluently_frontend/screens/friends/chat_page.dart';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_rating_bar/flutter_rating_bar.dart'; // Keep if you use rating bar in profile or elsewhere
+// Keep if you use rating bar in profile or elsewhere
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart'; // Ensure this path is correct and User model is updated
 import 'after_call_page.dart'; // Keep if used
@@ -73,7 +74,6 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     super.initState();
     _selectedAgeRange = RangeValues(_minPossibleAge, _maxPossibleAge);
 
-
     _loadData();
   }
 
@@ -92,7 +92,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     });
 
     // 1. Fetch initial list of matched user IDs and similarity scores
-    String matchmakingUrl = "http://10.0.2.2:8000/matchmaking/get-matched-users?n_recommendations=5";
+    String matchmakingUrl = "http://192.168.1.53:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
     try {
@@ -168,7 +168,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   // Helper method to fetch individual user profile
   // Takes initialData from the matchmaking endpoint to preserve similarity_score and other direct fields.
   Future<User?> _fetchUserProfile(int userId, String? token, {required Map<String, dynamic> initialData}) async {
-    String profileUrl = "http://10.0.2.2:8000/users/$userId/profile";
+    String profileUrl = "http://192.168.1.53:8000/users/$userId/profile";
     try {
       print("MatchmakingPage: Fetching profile for user ID $userId from $profileUrl");
       Response profileRes = await _dio.get(
@@ -188,8 +188,8 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
         // Assuming User.fromJson can take a Map that includes 'similarity_score'
         // and other fields from *both* initial matchmaking response and profile response.
         // Your User.fromJson needs to be robust enough to pick the correct fields.
-        // For example, use `userId` from `initialData` or `profileJson` (ensure consistency).
-        // Ensure `user_id` is consistently used or map `id` from profile to `user_id`.
+        // For example, use userId from initialData or profileJson (ensure consistency).
+        // Ensure user_id is consistently used or map id from profile to user_id.
 
         // Correcting user_id: profile endpoint might return 'id', matchmaking 'user_id'
         if (profileJson.containsKey('id') && !profileJson.containsKey('user_id')) {
@@ -625,8 +625,9 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
                         print("MatchmakingPage: Call icon tapped for user: ${user.name}, ID: ${user.id}");
                         Navigator.push(
                           context,
-
-                          MaterialPageRoute(builder: (context) => AfterCallPage(  userId: user.id,)),
+                          MaterialPageRoute(
+                            builder: (context) => UserMakingCallPage(userId: user.id, userName: user.name),
+                          ),
                         );
                       },
                     ),
@@ -635,25 +636,25 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
 
                   // Rating (under call icon)
 
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          user.rating!.toStringAsFixed(1),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[800],
-                          ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        user.rating!.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800],
                         ),
-                        const SizedBox(width: 3),
-                        const Icon(
-                          Icons.stars,
-                          color: Colors.amber, // Yellow star
-                          size: 16,
-                        ),
-                      ],
-                    )
+                      ),
+                      const SizedBox(width: 3),
+                      const Icon(
+                        Icons.stars,
+                        color: Colors.amber, // Yellow star
+                        size: 16,
+                      ),
+                    ],
+                  )
 
                   // Placeholder to maintain some height consistency if no rating
                   // Adjust height as needed, or remove if you don't mind height changes

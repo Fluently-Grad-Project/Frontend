@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'home_page.dart';
 import 'ai_chat_page.dart';
 
@@ -11,33 +14,61 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   int _selectedIndex = 0;
+  List<Map<String, dynamic>> leaders = [];
+  bool isLoading = true;
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
     if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      Navigator.pushReplacementNamed(context, '/home');
+    } else if (index == 1) {
+      Navigator.pushReplacementNamed(context, '/friends');
+    } else if (index == 2) {
+      Navigator.pushReplacementNamed(context, '/chat');
     } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const AIChatPage()), // Make sure AiChatPage is a valid widget
-      );
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
+      Navigator.pushReplacementNamed(context, '/ai');
+    } else if (index == 4) {
+      Navigator.pushReplacementNamed(context, '/account');
     }
+
+    print("HomePage: Navigating to index $index");
+
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    fetchLeaderboard();
+  }
 
-  final List<Map<String, dynamic>> leaders = [
-    {'name': 'User1'},
-    {'name': 'User2'},
-    {'name': 'User3'},
-    {'name': 'User4'},
-    {'name': 'User5'},
-  ];
+  Future<void> fetchLeaderboard() async {
+    try {
+      final response = await http.get(Uri.parse('http://192.168.1.53:8000/leaderboard/all'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          leaders = data.map((item) => {
+            'name': '${item['first_name']} ${item['last_name']}',
+            'profile_image': item['profile_image'],
+            'streaks': item['streaks'],
+            'hours': item['hours'],
+            'score': item['score'],
+          }).toList();
+          isLoading = false;
+        });
+      } else {
+        print('Failed to load leaderboard: ${response.statusCode}');
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      print('Error fetching leaderboard: $e');
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +92,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           ),
         ),
       ),
-      body: Column(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(
             child: ListView.builder(
@@ -85,7 +118,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                   ),
                   child: Row(
                     children: [
-                      // Rank icon or number
                       SizedBox(
                         width: 50,
                         child: Center(
@@ -106,19 +138,42 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         ),
                       ),
                       const SizedBox(width: 6.0),
-
-                      // User icon
-                      Image.asset('assets/user-figma-icon.png', width: 47, height: 47),
+                      leader['profile_image'] != null && leader['profile_image'].isNotEmpty
+                          ? ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Image.network(
+                          leader['profile_image'],
+                          width: 47,
+                          height: 47,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            // Fallback if image URL is invalid or fails to load
+                            return Image.asset('assets/user-figma-icon.png', width: 47, height: 47);
+                          },
+                        ),
+                      )
+                          : Image.asset('assets/user-figma-icon.png', width: 47, height: 47),
                       const SizedBox(width: 11.0),
-
-                      // Username
                       Expanded(
-                        child: Text(
-                          leader['name'],
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              leader['name'],
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '${leader['hours']} hrs',
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -130,18 +185,21 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
+        backgroundColor: Colors.white,
+        items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.android), label: 'AI'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), label: 'AI'), // Changed icon
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFF9F86C0),
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: const Color.fromARGB(255, 159, 134, 192),
+        unselectedItemColor: Colors.grey[600],
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
+        elevation: 5,
       ),
     );
   }

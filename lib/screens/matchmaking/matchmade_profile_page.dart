@@ -1,10 +1,9 @@
 import 'package:dio/dio.dart';
-import 'package:fluently_frontend/models/user_model.dart';
 import 'package:flutter/material.dart';
 // Assuming your User model is in this path (though not directly used for instantiation here)
 // import '../../models/user_model.dart';
-
 import '../matchmaking/after_call_page.dart'; // Ensure this path is correct
+import '../matchmaking/user_making_call_page.dart';
 
 class MatchMadeProfile extends StatefulWidget {
   final int userId;
@@ -63,7 +62,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       _interests = null;
     });
 
-    final String apiUrl = "http://10.0.2.2:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.53:8000/users/${widget.userId}/profile";
     print("Fetching user profile from: $apiUrl for userId: ${widget.userId}");
 
     try {
@@ -323,26 +322,26 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
 
                     ElevatedButton.icon(
                       onPressed: () {
-                        // Pass the original widget.userId to AfterCallPage.
-                        // _fetchedUserId could also be used if you want to ensure it's the ID from the server response.
-                        print("Navigating to AfterCallPage for interaction with user ID: ${widget.userId} ($_displayName)");
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AfterCallPage( userId: widget.userId,),
+                            builder: (context) => UserMakingCallPage(
+                              userId: widget.userId,
+                              userName: _firstName ?? _displayName.split(' ')[0],
+                            ),
                           ),
                         );
                       },
                       icon: const Icon(Icons.call, color: Colors.white),
                       label: Text(
-                          "Call ${_firstName ?? _displayName.split(' ')[0]}", // Use first name if available, else first word of displayName
-                          style: const TextStyle(color: Colors.white)
+                        "Call ${_firstName ?? _displayName.split(' ')[0]}",
+                        style: const TextStyle(color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(255, 159, 134, 192),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                        backgroundColor: const Color.fromARGB(255, 159, 134, 192),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 20), // Added padding at the bottom

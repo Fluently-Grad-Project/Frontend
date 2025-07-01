@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
+import 'after_call_page.dart';
+import 'user_making_call_page.dart';
 
 class UserAcceptCallPage extends StatelessWidget {
-  const UserAcceptCallPage({Key? key}) : super(key: key);
+  final int userId;
+  final String userName;
+
+  const UserAcceptCallPage({Key? key, required this.userId, required this.userName}) : super(key: key);
 
   static const double headerHeight = 60.0;
 
@@ -55,9 +60,9 @@ class UserAcceptCallPage extends StatelessWidget {
                     height: 40,
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Bassant',
-                    style: TextStyle(
+                  Text(
+                    userName,
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.black,
                       fontWeight: FontWeight.w500,
@@ -79,13 +84,15 @@ class UserAcceptCallPage extends StatelessWidget {
             ),
             GestureDetector(
               onTap: () async {
-                // Vibrate if supported
                 if (await Vibration.hasVibrator() ?? false) {
                   Vibration.vibrate(duration: 200);
                 }
-
-                // Immediately end call (navigate back)
-                Navigator.of(context).pop();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AfterCallPage(userId: userId),
+                  ),
+                );
               },
               child: Center(
                 child: Image.asset(
