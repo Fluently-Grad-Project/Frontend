@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "765534486014",
+    "project_id": "wordoftheday-b5a90",
+    "storage_bucket": "wordoftheday-b5a90.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:765534486014:android:8ea5b5e0832fb7307594af",
+        "android_client_info": {
+          "package_name": "com.example.besso_fluently"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-Z0JxgkDI0z_zaLXaaMRvCq4QjHHh5TY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:765534486014:android:3c657dcb4dfff13b7594af",
+        "android_client_info": {
+          "package_name": "com.example.my_frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-Z0JxgkDI0z_zaLXaaMRvCq4QjHHh5TY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:765534486014:android:5be4b9afe516993c7594af",
+        "android_client_info": {
+          "package_name": "com.example.myword"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-Z0JxgkDI0z_zaLXaaMRvCq4QjHHh5TY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
