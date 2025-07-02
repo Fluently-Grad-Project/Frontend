@@ -34,7 +34,7 @@ class _SignUpPageState extends State<SignUpPage> {
       );
     } else if (!acceptedTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the terms.')),
+        const SnackBar(content: Text('Please accept the terms and conditions.')),
       );
     }
   }
