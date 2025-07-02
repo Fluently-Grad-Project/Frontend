@@ -261,7 +261,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
                               radius: 35,
                               backgroundColor: Colors.white,
                               backgroundImage: (_profileImageUrl != null && _profileImageUrl!.isNotEmpty)
-                                  ? NetworkImage(_profileImageUrl!) // Consider CachedNetworkImage for better performance
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${_profileImageUrl!}") // Consider CachedNetworkImage for better performance
                                   : null,
                               child: (_profileImageUrl == null || _profileImageUrl!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)

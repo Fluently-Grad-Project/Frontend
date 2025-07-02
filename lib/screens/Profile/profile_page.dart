@@ -35,7 +35,8 @@ class _MyProfilePageState extends State<MyProfilePage> {
 
 
   Future<void> _showEditProfileDialog(BuildContext context) async {
-    final user = Provider.of<UserProvider>(context, listen: false).current;
+    var userProvider = Provider.of<UserProvider>(context, listen: false) ;
+    var user = userProvider.current;
     final TextEditingController firstNameController = TextEditingController(text: user!.firstName);
     final TextEditingController lastNameController = TextEditingController(text: user.lastName);
     String? selectedGender = user!.gender ?? 'GenderEnum.MALE';
@@ -59,7 +60,10 @@ class _MyProfilePageState extends State<MyProfilePage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
+        // isSaving state for the dialog's save button
+        bool isDialogSaving = false;
+
+        return StatefulBuilder( // For managing dialog-specific state like isDialogSaving
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('Edit Profile'),
@@ -78,21 +82,21 @@ class _MyProfilePageState extends State<MyProfilePage> {
                       decoration: const InputDecoration(labelText: 'Last Name'),
                     ),
                     const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: selectedGender,
-                    decoration: const InputDecoration(labelText: 'Gender'),
-                    items: genderOptions.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setDialogState(() {
-                        selectedGender = newValue;
-                      });
-                    },
-                  ),
+                    DropdownButtonFormField<String>(
+                      value: selectedGender,
+                      decoration: const InputDecoration(labelText: 'Gender'),
+                      items: genderOptions.map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setDialogState(() {
+                          selectedGender = newValue;
+                        });
+                      },
+                    ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       value: selectedProficiency,
@@ -165,6 +169,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
                       ),
                   ],
                 ),
+                // ... (your existing Column with TextFields, Dropdowns, ImagePicker, etc.) ...
               ),
               actions: <Widget>[
                 TextButton(
@@ -174,9 +179,14 @@ class _MyProfilePageState extends State<MyProfilePage> {
                   },
                 ),
                 ElevatedButton(
-                  child: const Text('Save Changes'),
-                  onPressed: () async {
-                    Navigator.of(dialogContext).pop();
+                  child: isDialogSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Changes'),
+                  onPressed: isDialogSaving ? null : () async {
+                    setDialogState(() {
+                      isDialogSaving = true;
+                    });
+
+                    bool textDataUpdated = false;
+                    bool imageUploaded = true; // Assume true if no image selected, or handle specific logic
 
                     final updatedUserData = {
                       'first_name': firstNameController.text,
@@ -185,15 +195,49 @@ class _MyProfilePageState extends State<MyProfilePage> {
                       'interests': selectedInterests,
                       'proficiency_level': selectedProficiency,
                     };
-                    _updateProfileApiCall(updatedUserData, context);
 
-                    if (selectedImage != null) {
+                    // Call your API to update text data
+                    // Ensure this function returns a bool indicating success
+                    textDataUpdated = await _updateProfileApiCall(updatedUserData, context); // Pass the main page context
 
-                      _uploadProfileImageApiCall(selectedImage!, context);
+                    if (selectedImage != null && textDataUpdated) { // Optionally only upload image if text update was successful
+                      // Ensure this function returns a bool indicating success
+                      imageUploaded = await _uploadProfileImageApiCall(selectedImage!, context); // Pass the main page context
+                    } else if (selectedImage != null && !textDataUpdated) {
+                      print("ProfilePage: Text data update failed, skipping image upload.");
+                      imageUploaded = false; // Or handle as a partial success/failure
                     }
 
-                    final userProvider = Provider.of<UserProvider>(context, listen: false);
-                    userProvider.fetchById(user.id);
+                    setDialogState(() {
+                      isDialogSaving = false;
+                    });
+
+                    if (textDataUpdated || imageUploaded) {
+                      // --- THIS IS THE CRUCIAL PART ---
+                      print("ProfilePage: Profile updates successful via API.");
+                      userProvider.fetchById(user.id);
+
+                      Navigator.of(dialogContext).pop(); // Close the dialog
+
+                      // Optional: Show success SnackBar on the main page's context
+                      // This was already present, but now it runs after provider updates
+                      ScaffoldMessenger.of(context).showSnackBar( // Use original `context` for the page's ScaffoldMessenger
+                        const SnackBar(
+                          content: Text('Profile updated successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+
+                    } else {
+                      print("ProfilePage: One or more profile update operations failed.");
+                      // Keep the dialog open or show an error specific to the dialog context
+                      ScaffoldMessenger.of(dialogContext).showSnackBar( // Use dialogContext here
+                        const SnackBar(
+                          content: Text('Failed to save all changes. Please try again.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   },
                 ),
               ],
@@ -204,10 +248,11 @@ class _MyProfilePageState extends State<MyProfilePage> {
     );
   }
 
-  Future<void> _uploadProfileImageApiCall(File imageFile, BuildContext pageContext) async {
-    refreshToken();
-    String uploadProfileImageApiUrl = "http://10.0.2.2:8000/auth/upload-profile-picture";
-    final SharedPreferences prefs =  await SharedPreferences.getInstance();
+  Future<bool> _uploadProfileImageApiCall(File imageFile, BuildContext pageContext) async {
+    // Similar structure to _updateProfileApiCall, returning bool
+    refreshToken(); // Consider making this await and checking success if it's critical before upload
+    String uploadProfileImageApiUrl = "http://10.0.2.2:8000/users/upload-profile-picture";
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
     try {
       final response = await _dio.post(
         uploadProfileImageApiUrl,
@@ -218,21 +263,42 @@ class _MyProfilePageState extends State<MyProfilePage> {
           },
         ),
       );
-
+      if (response.statusCode == 200 || response.statusCode == 201) { // Often 201 for creation/upload
+        print("ProfilePage: _uploadProfileImageApiCall successful.");
+        return true;
+      } else if (response.statusCode == 401) {
+        print("ProfilePage: _uploadProfileImageApiCall 401, attempting token refresh.");
+        bool refreshed = await refreshToken();
+        if (refreshed) {
+          return await _uploadProfileImageApiCall(imageFile, pageContext); // Retry
+        }
+        return false;
+      } else {
+        print('ProfilePage: Error uploading profile image - Status: ${response.statusCode}');
+        ScaffoldMessenger.of(pageContext).showSnackBar(
+          SnackBar(content: Text('Image upload error: ${response.statusCode}'), backgroundColor: Colors.red),
+        );
+        return false;
+      }
     } catch (e) {
-      print('Error uploading profile image: $e');
+      print('ProfilePage: Error uploading profile image: $e');
+      ScaffoldMessenger.of(pageContext).showSnackBar(
+        SnackBar(content: Text('Image upload exception: ${e.toString()}'), backgroundColor: Colors.red),
+      );
+      return false;
     }
   }
 
-  Future<void> _updateProfileApiCall(Map<String, dynamic> data, BuildContext pageContext) async {
-    final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    final currentUser = Provider.of<UserProvider>(context, listen: false);
-
+  Future<bool> _updateProfileApiCall(Map<String, dynamic> data, BuildContext pageContext) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    // No need to get UserProvider here if you're not using it directly for the API call itself
+    // final currentUserProvider = Provider.of<UserProvider>(pageContext, listen: false);
 
     const String updateProfileApiUrl = "http://10.0.2.2:8000/users/update-profile";
 
+    // Using pageContext for ScaffoldMessenger which is fine
     ScaffoldMessenger.of(pageContext).showSnackBar(
-      const SnackBar(content: Text('Updating profile...'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Updating profile...'), duration: Duration(milliseconds: 500)), // Shorter duration
     );
 
     try {
@@ -246,30 +312,32 @@ class _MyProfilePageState extends State<MyProfilePage> {
         ),
       );
 
-
-      await Future.delayed(const Duration(seconds: 2));
+      // No Future.delayed here, let the UI update when data is ready
       if (response.statusCode == 200) {
-
+        print("ProfilePage: _updateProfileApiCall successful.");
+        // The UserProvider.fetchById in the dialog's save handler will get the fresh data.
+        // No need to update the provider from here directly if the dialog handles it.
+        return true;
+      } else if (response.statusCode == 401) {
+        print("ProfilePage: _updateProfileApiCall 401, attempting token refresh.");
+        bool refreshed = await refreshToken(); // Assuming refreshToken is accessible and returns bool
+        if (refreshed) {
+          return await _updateProfileApiCall(data, pageContext); // Retry
+        }
+        return false;
+      } else {
+        print("ProfilePage: _updateProfileApiCall failed. Status: ${response.statusCode}");
         ScaffoldMessenger.of(pageContext).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
+          SnackBar(content: Text('Profile update error: ${response.statusCode}'), backgroundColor: Colors.red),
         );
-        int id = currentUser.current!.id;
-        currentUser.clear();
-        currentUser.fetchById(id);
-
-
-      }
-      else if(response.statusCode == 401) {
-        refreshToken();
-        _updateProfileApiCall(data, pageContext);
+        return false;
       }
     } catch (e) {
+      print("ProfilePage: _updateProfileApiCall error: $e");
       ScaffoldMessenger.of(pageContext).showSnackBar(
-        SnackBar(content: Text('An error occurred while updating: ${e.toString()}'), backgroundColor: Colors.red),
+        SnackBar(content: Text("Name Can't be empty"), backgroundColor: Colors.red),
       );
+      return false;
     }
   }
 
@@ -334,6 +402,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).current;
 
+
     const Color headerColor = Color(0xFFA58DCA);
     String interestsString = "Not specified";
     if (user!.interests != null && user.interests!.isNotEmpty) {
@@ -390,7 +459,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
                             radius: 35,
                             backgroundColor: Colors.white,
                             backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                                ? NetworkImage(user.profile_image!)
+                                ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${user.profile_image!}")
                                 : null,
                             child: (user.profile_image == null || user.profile_image!.isEmpty)
                                 ? Icon(Icons.person, color: headerColor, size: 40)

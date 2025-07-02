@@ -336,7 +336,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       if (!mounted) return;
       print('Error reporting user: $e');
       ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-        SnackBar(content: Text('An error occurred while reporting.'), backgroundColor: Colors.red),
+        SnackBar(content: Text("You've already reported this user"), backgroundColor: Colors.red),
       );
     }
   }
@@ -579,7 +579,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
                               backgroundColor: Colors.white,
                               // Use userToDisplay.profileImage (or appropriate field from your User model)
                               backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
-                                  ? NetworkImage(userToDisplay.profile_image!)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
                                   : null,
                               child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)

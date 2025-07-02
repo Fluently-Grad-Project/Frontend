@@ -178,58 +178,178 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _fetchChatHistory() async {
-    final SharedPreferences prefs =  await SharedPreferences.getInstance();
+    print("DEBUG: _fetchChatHistory called.");
 
-    final currentUser = Provider.of<UserProvider>(context, listen: false);
-    print("got token : ${prefs.get("token")}");
+    if (_isLoadingHistory) {
+      print("DEBUG: _fetchChatHistory: Already loading history, returning.");
+      return;
+    }
 
-
-    if (_isLoadingHistory) return;
     setState(() {
       _isLoadingHistory = true;
       // Optionally show a loading indicator for history
     });
+    print("DEBUG: _fetchChatHistory: Set _isLoadingHistory to true.");
+
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+      print("DEBUG: _fetchChatHistory: SharedPreferences instance obtained.");
+    } catch (e) {
+      print("DEBUG: _fetchChatHistory: ERROR obtaining SharedPreferences: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error accessing storage: $e')),
+        );
+      }
+      return;
+    }
+
+    final String? token = prefs.getString("token");
+    print("DEBUG: _fetchChatHistory: Token from prefs: '$token'");
+
+    if (token == null || token.isEmpty) {
+      print("DEBUG: _fetchChatHistory: Token is null or empty. Cannot fetch history.");
+      // Potentially handle this by trying to refresh token or redirecting to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authentication token not found. Please log in again.'), backgroundColor: Colors.red),
+        );
+        // Consider navigating to login: Navigator.pushReplacementNamed(context, '/login');
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
+      return;
+    }
+
+    UserProvider currentUserProvider;
+    try {
+      // Ensure context is valid before using Provider.of
+      if (!mounted) {
+        print("DEBUG: _fetchChatHistory: Context is not mounted before accessing UserProvider. Returning.");
+        setState(() { _isLoadingHistory = false; });
+        return;
+      }
+      currentUserProvider = Provider.of<UserProvider>(context, listen: false);
+      print("DEBUG: _fetchChatHistory: UserProvider obtained.");
+    } catch (e) {
+      print("DEBUG: _fetchChatHistory: ERROR obtaining UserProvider: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error accessing user data: $e')),
+        );
+      }
+      return;
+    }
+
+    final User? currentUser = currentUserProvider.current;
+    if (currentUser == null) {
+      print("DEBUG: _fetchChatHistory: currentUser from UserProvider is NULL.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current user data not available. Please try again.'), backgroundColor: Colors.red),
+        );
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
+      return;
+    }
+    print("DEBUG: _fetchChatHistory: Current user ID: ${currentUser.id}");
+    print("DEBUG: _fetchChatHistory: Target chat user ID (receiver_id): ${widget.chatUser.id}");
 
 
     try {
+      final targetUrl = 'http://10.0.2.2:8000/chat/history?receiver_id=${widget.chatUser.id}';
+      print("DEBUG: _fetchChatHistory: Sending API request to: $targetUrl");
+      print("DEBUG: _fetchChatHistory: Authorization Header: 'Bearer $token'");
+
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:8000/chat/history?receiver_id=${widget.chatUser.id}'),
+        Uri.parse(targetUrl),
         headers: {
-          'Authorization': 'Bearer ${prefs.getString("token")}',
+          'Authorization': 'Bearer $token', // Re-check if prefs.getString("token") was indeed correct
         },
       );
-      print("sent api");
-
+      print("DEBUG: _fetchChatHistory: API response received. Status code: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        List<dynamic> historyJson = jsonDecode(response.body);
-        print("fetched  :" + historyJson.toString());
-        print("user id : " + currentUser.current!.id.toString());
+        print("DEBUG: _fetchChatHistory: Response Body: ${response.body}");
+        List<dynamic> historyJson;
+        try {
+          historyJson = jsonDecode(response.body);
+          print("DEBUG: _fetchChatHistory: Successfully decoded JSON. Number of history items: ${historyJson.length}");
+        } catch (e) {
+          print("DEBUG: _fetchChatHistory: ERROR decoding JSON response: $e");
+          print("DEBUG: _fetchChatHistory: Malformed JSON was: ${response.body}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Received malformed data from server.')),
+            );
+          }
+          return; // Exit here as we can't process further
+        }
+
         final List<ChatMessage> historyMessages = historyJson
-            .map((json) => ChatMessage.fromHistoryJson(json,  currentUser.current!.id))
+            .map((jsonItem) {
+          print("DEBUG: _fetchChatHistory: Mapping JSON item: $jsonItem");
+          // Add a null check for jsonItem before passing to fromHistoryJson if it can be null
+          if (jsonItem == null) {
+            print("DEBUG: _fetchChatHistory: WARNING - JSON item in history list is null.");
+            return null; // or handle appropriately
+          }
+          try {
+            return ChatMessage.fromHistoryJson(jsonItem as Map<String, dynamic>, currentUser.id);
+          } catch (e) {
+            print("DEBUG: _fetchChatHistory: ERROR in ChatMessage.fromHistoryJson for item $jsonItem: $e");
+            return null; // Skip problematic items
+          }
+        })
+            .whereType<ChatMessage>() // This will filter out any nulls if you return null for bad items
             .toList();
+
+        print("DEBUG: _fetchChatHistory: Successfully mapped ${historyMessages.length} messages.");
 
         if (mounted) {
           setState(() {
             _messages.addAll(historyMessages);
             _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Newest first
+            print("DEBUG: _fetchChatHistory: Messages added to state and sorted. Total messages: ${_messages.length}");
           });
         }
-      }
-      else if (response.statusCode == 401) {
-        refreshToken();
-        _fetchChatHistory();
+      } else if (response.statusCode == 401) {
+        print("DEBUG: _fetchChatHistory: Unauthorized (401). Current token: '$token'. Attempting refresh.");
+        // Ensure refreshToken is awaited and its success is checked
+        bool refreshed = await refreshToken(); // Assuming refreshToken returns bool
+        if (refreshed) {
+          print("DEBUG: _fetchChatHistory: Token refreshed successfully. Retrying _fetchChatHistory.");
+          _fetchChatHistory(); // Recursive call, be mindful of potential infinite loops if refresh fails repeatedly
+        } else {
+          print("DEBUG: _fetchChatHistory: Token refresh failed. User may need to log in again.");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please log in again.'), backgroundColor: Colors.red),
+            );
+            // Potentially navigate to login screen
+          }
+        }
       } else {
-        // Handle error (e.g., show a Snackbar)
-        print('Failed to load chat history: ${response.statusCode} ${response.body}');
+        print('DEBUG: _fetchChatHistory: Failed to load chat history. Status: ${response.statusCode}, Body: ${response.body}');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load chat history: ${response.reasonPhrase}')),
+            SnackBar(content: Text('Failed to load chat history: ${response.reasonPhrase} (Status: ${response.statusCode})')),
           );
         }
       }
-    } catch (e) {
-      print('Error fetching chat history: $e');
+    } catch (e, stackTrace) { // Added stackTrace for more detailed error
+      print('DEBUG: _fetchChatHistory: CRITICAL ERROR fetching chat history: $e');
+      print('DEBUG: _fetchChatHistory: StackTrace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading history: $e')),
@@ -240,6 +360,9 @@ class _ChatPageState extends State<ChatPage> {
         setState(() {
           _isLoadingHistory = false;
         });
+        print("DEBUG: _fetchChatHistory: Set _isLoadingHistory to false in finally block.");
+      } else {
+        print("DEBUG: _fetchChatHistory: Not mounted in finally block, cannot set state.");
       }
     }
   }
@@ -480,7 +603,7 @@ class _ChatPageState extends State<ChatPage> {
           }
 
           // Check if the sender is me (based on name)
-          if (potentialEchoSenderName == currentUser.current!.name) {
+          if (potentialEchoSenderName == (currentUser.current!.firstName! + " " + currentUser.current!.lastName!)) {
             final recentlySentMessageIndex = _messages.indexWhere((m) =>
             m.isSentByMe &&
                 m.text == potentialEchoTextContent &&
@@ -790,7 +913,7 @@ class _ChatPageState extends State<ChatPage> {
                               radius: 20,
                               backgroundColor: headerColor.withOpacity(0.1),
                               backgroundImage: widget.chatUser.profile_image != null && widget.chatUser.profile_image!.isNotEmpty
-                                  ? NetworkImage(widget.chatUser.profile_image!)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${widget.chatUser.profile_image!}")
                                   : null,
                               child: widget.chatUser.profile_image == null || widget.chatUser.profile_image!.isEmpty
                                   ? Text(

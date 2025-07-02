@@ -234,7 +234,7 @@ class _FriendsPageState extends State<FriendsPage> {
               radius: 28,
               backgroundColor: Colors.grey[300],
               backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                  ? NetworkImage(user.profile_image!)
+                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${user.profile_image!}")
                   : null,
               onBackgroundImageError: (user.profile_image != null && user.profile_image!.isNotEmpty)
                   ? (exception, stackTrace) {

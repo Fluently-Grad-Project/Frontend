@@ -129,6 +129,7 @@ class _ProfilePageState extends State<ProfilePage> {
         );
          if (Navigator.canPop(context)) {
            Navigator.pop(context);
+           Navigator.pop(context);
          }
       } else if (response.statusCode == 401) {
         refreshToken();
@@ -261,7 +262,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // report user API call
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    const String reportApiUrl = "http://10.0.2.2:8000/reports/"; // TODO: Ensure this URL is correct
+    const String reportApiUrl = "http://10.0.2.2:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -309,7 +310,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       print('Error reporting user: $e');
       ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-        SnackBar(content: Text('An error occurred while reporting.'), backgroundColor: Colors.red),
+        SnackBar(content: Text("You've already submitted a report on this user"), backgroundColor: Colors.red),
       );
     }
   }
@@ -458,8 +459,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             CircleAvatar(
                               radius: 35,
                               backgroundColor: Colors.white,
-                              // TODO: Add backgroundImage: NetworkImage(user.profileImageUrl) if available
-                              child: Icon(Icons.person, color: headerColor, size: 40), // Fallback
+                              backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${user.profile_image!}")
+                                  : null,
+                              child: (user.profile_image == null || user.profile_image!.isEmpty)
+                                  ? Icon(Icons.person, color: headerColor, size: 40)
+                                  : null,
                             ),
                             const SizedBox(width: 20),
                             Expanded(
