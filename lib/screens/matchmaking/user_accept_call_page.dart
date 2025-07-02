@@ -6,9 +6,14 @@ import 'user_making_call_page.dart';
 class UserAcceptCallPage extends StatelessWidget {
   final int userId;
   final String userName;
+  final String firebaseUid;
 
-  const UserAcceptCallPage({Key? key, required this.userId, required this.userName}) : super(key: key);
-
+  const UserAcceptCallPage({
+    Key? key,
+    required this.userId,
+    required this.userName,
+    required this.firebaseUid, // include this
+  }) : super(key: key);
   static const double headerHeight = 60.0;
 
   @override

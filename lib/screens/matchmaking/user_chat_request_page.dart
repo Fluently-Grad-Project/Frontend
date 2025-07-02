@@ -8,8 +8,15 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 class UserChatRequestPage extends StatefulWidget {
   final int callerId;
   final String callerName;
+  final String firebaseUid;
 
-  const UserChatRequestPage({Key? key, required this.callerId, required this.callerName}) : super(key: key);
+  const UserChatRequestPage({
+    Key? key,
+    required this.callerId,
+    required this.callerName,
+    required this.firebaseUid, // ✅ ADD THIS
+  }) : super(key: key);
+
   @override
   State<UserChatRequestPage> createState() => _UserChatRequestPageState();
 }
@@ -161,6 +168,7 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
                                 builder: (context) => UserAcceptCallPage(
                                   userId: widget.callerId,
                                   userName: widget.callerName,
+                                  firebaseUid: widget.firebaseUid,
                                 ),
                               ),
                             );

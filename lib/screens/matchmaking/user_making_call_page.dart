@@ -7,7 +7,14 @@ import 'package:audioplayers/audioplayers.dart';
 class UserMakingCallPage extends StatefulWidget {
   final int userId;
   final String userName;
-  const UserMakingCallPage({Key? key, required this.userId, required this.userName}) : super(key: key);
+  final String firebaseUid;
+
+  const UserMakingCallPage({
+    Key? key,
+    required this.userId,
+    required this.userName,
+    required this.firebaseUid,
+  }) : super(key: key);
 
   @override
   State<UserMakingCallPage> createState() => _UserMakingCallPageState();
@@ -35,6 +42,7 @@ class _UserMakingCallPageState extends State<UserMakingCallPage> {
             builder: (context) => UserAcceptCallPage(
               userId: widget.userId,
               userName: widget.userName,
+              firebaseUid: widget.firebaseUid,
             ),
           ),
         );

@@ -168,12 +168,12 @@ class _AfterCallPageState extends State<AfterCallPage> {
 
     try {
       final response = await dio.post(
-        friendRequestApiUrl,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer ${prefs.getString("token")}',
-          },
-        )
+          friendRequestApiUrl,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer ${prefs.getString("token")}',
+            },
+          )
 
       );
 
@@ -295,17 +295,17 @@ class _AfterCallPageState extends State<AfterCallPage> {
     print("_reportUserApiCall: Reporting user $userIdToReport for ${reason.name} Priority: $priority");
     try {
       final response = await dio.post(
-        reportApiUrl,
-        data: {
-          "reported_user_id": userIdToReport,
-          "priority": priority,
-          "reason": reason.name
-        },
-        options:  Options(
-          headers: {
-            'Authorization': 'Bearer ${prefs.getString("token")}'
+          reportApiUrl,
+          data: {
+            "reported_user_id": userIdToReport,
+            "priority": priority,
+            "reason": reason.name
           },
-        )
+          options:  Options(
+            headers: {
+              'Authorization': 'Bearer ${prefs.getString("token")}'
+            },
+          )
       );
 
       if (!mounted) return;

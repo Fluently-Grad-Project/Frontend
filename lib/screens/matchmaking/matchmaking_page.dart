@@ -1,4 +1,5 @@
 import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 
 import 'package:flutter/material.dart';
@@ -75,6 +76,23 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     _selectedAgeRange = RangeValues(_minPossibleAge, _maxPossibleAge);
 
     _loadData();
+  }
+
+  Future<String?> getFirebaseUidByEmail(String email) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.id; // Firestore document ID is the Firebase UID
+      }
+    } catch (e) {
+      print("Error fetching Firebase UID by email: $e");
+    }
+    return null;
   }
 
   Future<void> _loadData() async {
@@ -618,18 +636,42 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
                     radius: 22, // Adjusted radius
                     backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                     child: IconButton(
-                      icon: Icon(Icons.call, color: Theme.of(context).primaryColor, size: 24), // Adjusted size
-                      tooltip: "Call ${user.name}",
-                      splashRadius: 22,
-                      onPressed: () {
-                        print("MatchmakingPage: Call icon tapped for user: ${user.name}, ID: ${user.id}");
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => UserMakingCallPage(userId: user.id, userName: user.name),
-                          ),
-                        );
-                      },
+                        icon: Icon(Icons.call, color: Theme.of(context).primaryColor, size: 24), // Adjusted size
+                        tooltip: "Call ${user.name}",
+                        splashRadius: 22,
+                        onPressed: () async {
+                          print("MatchmakingPage: Call icon tapped for user: ${user.name}, email: ${user.email}");
+
+                          if (user.email == null) {
+                            print("Error: User email is null. Cannot fetch Firebase UID.");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Cannot start call. User email is missing.")),
+                            );
+                            return;
+                          }
+
+                          String? firebaseUid = await getFirebaseUidByEmail(user.email!); // Use ! since we've checked for null
+
+                          if (firebaseUid != null) {
+                            print("Firebase UID Lookup: Email '${user.email}' corresponds to UID '$firebaseUid'");
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserMakingCallPage(
+                                  userId: user.id,
+                                  userName: user.name,
+                                  firebaseUid: firebaseUid,
+                                ),
+                              ),
+                            );
+                          } else {
+                            print("Error: Could not find Firebase UID for ${user.email}");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Unable to start call. User not found in Firebase.")),
+                            );
+                          }
+                        }
                     ),
                   ),
                   const SizedBox(height: 6), // Space between call icon and rating

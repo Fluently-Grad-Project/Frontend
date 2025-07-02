@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 // Assuming your User model is in this path (though not directly used for instantiation here)
@@ -24,6 +25,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
   int? _age;
   String? _profileImageUrl;
   List<String>? _interests;
+  String? _email;
 
   bool _isLoading = true;
   String? _error;
@@ -46,6 +48,24 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
     super.initState();
     _fetchUserData();
   }
+
+  Future<String?> getFirebaseUidByEmail(String email) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.id; // Firestore document ID = Firebase UID
+      }
+    } catch (e) {
+      print("Error fetching Firebase UID by email: $e");
+    }
+    return null;
+  }
+
 
   Future<void> _fetchUserData() async {
     setState(() {
@@ -73,6 +93,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
           Map<String, dynamic> jsonData = response.data as Map<String, dynamic>;
 
           // --- Extract required data directly ---
+          String? fetchedEmail = jsonData['email'] as String?;
           int? fetchedIdFromJson = jsonData['id'] as int?;
           String? fetchedFirstName = jsonData['first_name'] as String?;
           String? fetchedLastName = jsonData['last_name'] as String?;
@@ -111,6 +132,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
             _profileImageUrl = fetchedProfileImage;
             _interests = (fetchedInterests != null && fetchedInterests.isNotEmpty) ? fetchedInterests : null;
             _isLoading = false;
+            _email = fetchedEmail;
           });
 
         } else {
@@ -321,16 +343,44 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
                     const SizedBox(height: 25),
 
                     ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => UserMakingCallPage(
-                              userId: widget.userId,
-                              userName: _firstName ?? _displayName.split(' ')[0],
-                            ),
-                          ),
+                      onPressed: () async {
+                        if (_email == null || _email!.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("User email not available to start call.")),
+                          );
+                          return;
+                        }
+
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => const Center(child: CircularProgressIndicator()),
                         );
+
+                        final firebaseUid = await getFirebaseUidByEmail(_email!);
+
+                        Navigator.pop(context);
+
+                        // Print email and UID for debugging
+                        print("Email: $_email");
+                        print("Firebase UID: $firebaseUid");
+
+                        if (firebaseUid != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => UserMakingCallPage(
+                                userId: widget.userId,
+                                userName: _firstName ?? _displayName.split(' ')[0],
+                                firebaseUid: firebaseUid,
+                              ),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Failed to get user UID from Firebase.")),
+                          );
+                        }
                       },
                       icon: const Icon(Icons.call, color: Colors.white),
                       label: Text(
