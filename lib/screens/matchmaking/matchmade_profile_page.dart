@@ -1,3 +1,4 @@
+import 'package:besso_fluently/screens/matchmaking/VoiceCallScreen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -369,11 +370,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => UserMakingCallPage(
-                                userId: widget.userId,
-                                userName: _firstName ?? _displayName.split(' ')[0],
-                                firebaseUid: firebaseUid,
-                              ),
+                              builder: (context) => VoiceCallScreen(),
                             ),
                           );
                         } else {

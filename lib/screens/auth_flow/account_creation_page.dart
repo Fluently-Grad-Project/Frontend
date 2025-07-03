@@ -75,7 +75,11 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
           'uid': firebaseUid,
           'email': onboardingData.email,
           'user_id': userId,
+          'first_name': onboardingData.firstName,   // Add this
+          'last_name': onboardingData.lastName,     // Add this
+          'username': "${onboardingData.firstName} ${onboardingData.lastName}".trim(), // Optional convenience field
         });
+
 
         if (mounted) {
           Navigator.pushNamed(context, '/home');

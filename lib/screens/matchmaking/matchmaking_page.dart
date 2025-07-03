@@ -1,13 +1,15 @@
+import 'package:besso_fluently/screens/matchmaking/matchmade_profile_voicecall.dart';
+import 'package:besso_fluently/screens/matchmaking/user_chat_request_page.dart';
 import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
-
+import 'call_manager.dart';
 import 'package:flutter/material.dart';
 // Keep if you use rating bar in profile or elsewhere
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart'; // Ensure this path is correct and User model is updated
+import 'VoiceCallScreen.dart';
 import 'after_call_page.dart'; // Keep if used
-import 'call_page.dart'; // Keep if used
 import 'matchmade_profile_page.dart'; // Keep if used
 
 
@@ -21,6 +23,9 @@ class MatchmakingPage extends StatefulWidget {
 
 class _MatchmakingPageState extends State<MatchmakingPage> {
   int _selectedIndex = 2; // Default for 'Chat/Matchmaking'
+
+  final CallManager _callManager = CallManager();
+  bool _isCallDialogShowing = false;
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
@@ -76,7 +81,15 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     _selectedAgeRange = RangeValues(_minPossibleAge, _maxPossibleAge);
 
     _loadData();
+
   }
+
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
 
   Future<String?> getFirebaseUidByEmail(String email) async {
     try {
@@ -546,7 +559,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => MatchMadeProfile(userId: user.id),
+              builder: (context) => VoiceCallScreen(),
             ),
           );
         },
@@ -650,19 +663,14 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
                             return;
                           }
 
-                          String? firebaseUid = await getFirebaseUidByEmail(user.email!); // Use ! since we've checked for null
+                          String? firebaseUid = await getFirebaseUidByEmail(user.email!);
 
                           if (firebaseUid != null) {
                             print("Firebase UID Lookup: Email '${user.email}' corresponds to UID '$firebaseUid'");
 
-                            Navigator.push(
-                              context,
+                            Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => UserMakingCallPage(
-                                  userId: user.id,
-                                  userName: user.name,
-                                  firebaseUid: firebaseUid,
-                                ),
+                                builder: (_) => VoiceCallScreen(),
                               ),
                             );
                           } else {
