@@ -1,20 +1,28 @@
+import 'dart:async';
+
 import 'package:besso_fluently/screens/matchmaking/user_accept_call_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 import 'package:lottie/lottie.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class UserMakingCallPage extends StatefulWidget {
-  final int userId;
+  final String callDocId;
+  final String selfId;
+  final Future<void> Function() hangUp;
+  final VoidCallback onCallAnswered;
   final String userName;
-  final String firebaseUid;
 
   const UserMakingCallPage({
     Key? key,
-    required this.userId,
+    required this.callDocId,
+    required this.selfId,
+    required this.hangUp,
+    required this.onCallAnswered,
     required this.userName,
-    required this.firebaseUid,
   }) : super(key: key);
+
 
   @override
   State<UserMakingCallPage> createState() => _UserMakingCallPageState();
@@ -22,32 +30,31 @@ class UserMakingCallPage extends StatefulWidget {
 
 class _UserMakingCallPageState extends State<UserMakingCallPage> {
   final AudioPlayer _audioPlayer = AudioPlayer();
+  StreamSubscription<DocumentSnapshot>? _callSub;
+
 
   @override
   void initState() {
     super.initState();
     _playCallingSound();
+    _listenCallChanges();
+  }
 
-    // Simulate callee response after 5 seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (!mounted) return;
+  void _listenCallChanges() {
+    final docRef = FirebaseFirestore.instance.collection('calls').doc(widget.callDocId);
+    _callSub = docRef.snapshots().listen((doc) async {
+      if (!doc.exists) return;
 
-      // Change this bool to true or false to test accept or decline
-      bool calleeAccepted = true; // set false to test decline behavior
+      final data = doc.data();
+      if (data == null) return;
 
-      if (calleeAccepted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => UserAcceptCallPage(
-              userId: widget.userId,
-              userName: widget.userName,
-              firebaseUid: widget.firebaseUid,
-            ),
-          ),
-        );
-      } else {
-        Navigator.pop(context); // Go back to MatchmakingPage on decline
+      if (data['callEnded'] == true) {
+        // Call ended (rejected or cancelled)
+        await widget.hangUp();
+        if (mounted) Navigator.of(context).pop(); // go back to caller page
+      } else if (data['type'] == 'answer') {
+        // Call accepted
+        widget.onCallAnswered();
       }
     });
   }
@@ -61,6 +68,7 @@ class _UserMakingCallPageState extends State<UserMakingCallPage> {
   void dispose() {
     _audioPlayer.stop(); // stop sound when page is disposed
     _audioPlayer.dispose();
+    _callSub?.cancel();
     super.dispose();
   }
 

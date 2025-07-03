@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:besso_fluently/screens/matchmaking/InCallScreen.dart';
 import 'package:besso_fluently/screens/matchmaking/user_chat_request_page.dart';
+import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -283,6 +284,27 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       print("📁 Firestore call doc created: $_callDocId");
 
       _listenForRemoteIceCandidates(isCaller: true);
+
+      // Here: Navigate immediately to UserMakingCallPage
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => UserMakingCallPage(
+              callDocId: _callDocId!,
+              selfId: _selfId,
+              hangUp: _hangUp,
+              onCallAnswered: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId),
+                  ),
+                );
+              },
+              userName: _displayName,
+            ),
+          ),
+        );
+      }
 
       await _callStateSub?.cancel(); // Cancel any previous listener
       _callStateSub = _firestore.collection('calls').doc(_callDocId!).snapshots().listen((docSnapshot) async {
@@ -651,6 +673,12 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
                     ),
 
                     const SizedBox(height: 20), // bottom padding
+
+                    SizedBox(
+                      width: 0,
+                      height: 0,
+                      child: RTCVideoView(_remoteRenderer),
+                    ),
                   ],
                 ),
               ),
