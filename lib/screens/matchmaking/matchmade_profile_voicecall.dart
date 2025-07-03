@@ -202,38 +202,118 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
     });
   }
 
-  Future<void> _startCall() async {
-    if (_calleeId.trim().isEmpty) return;
-    await _cleanPreviousCallsBetween(_selfId, _calleeId);
-    await _initLocalStream();
-    _peerConnection = await _createPeerConnection(isCaller: true);
-    _localStream?.getAudioTracks().forEach((track) {
-      _peerConnection?.addTrack(track, _localStream!);
-    });
-    final offer = await _peerConnection!.createOffer();
-    await _peerConnection!.setLocalDescription(offer);
+  Future<void> _resetMediaState() async {
+    if (_peerConnection != null) {
+      _peerConnection!.onTrack = null;
+      _peerConnection!.onIceCandidate = null;
+      await _peerConnection!.close();
+      await _peerConnection!.dispose();
+      _peerConnection = null;
+    }
 
-    final callDoc = await _firestore.collection('calls').add({
-      'callerId': _selfId,
-      'calleeId': _calleeId.trim(),
-      'type': 'offer',
-      'sdp': offer.sdp,
-      'sdpType': offer.type,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-
-    _callDocId = callDoc.id;
-    _listenForRemoteIceCandidates(isCaller: true);
-
-    _callStateSub = _firestore.collection('calls').doc(_callDocId!).snapshots().listen((docSnapshot) async {
-      final data = docSnapshot.data();
-      if (data == null) return;
-      if (data['callEnded'] == true) return _hangUp();
-      if (data['type'] == 'answer') {
-        await _peerConnection?.setRemoteDescription(RTCSessionDescription(data['sdp'], data['sdpType']));
-        if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId)));
+    if (_localStream != null) {
+      for (var track in _localStream!.getTracks()) {
+        track.stop();
       }
-    });
+      await _localStream!.dispose();
+      _localStream = null;
+    }
+
+    // ✅ Ensure both renderers are fully detached
+    _localRenderer.srcObject = null;
+    if (_remoteRenderer.srcObject != null) {
+      for (var track in _remoteRenderer.srcObject!.getTracks()) {
+        track.stop();
+      }
+    }
+    _remoteRenderer.srcObject = null;
+
+    await _iceSub?.cancel();
+    _iceSub = null;
+  }
+
+  Future<void> _startCall() async {
+    if (_calleeId.trim().isEmpty) {
+      print("⚠️ Callee ID is empty");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter the Callee UID")),
+      );
+      return;
+    }
+
+    try {
+      print("📞 Starting call to $_calleeId");
+
+      await _cleanPreviousCallsBetween(_selfId, _calleeId.trim());
+      print("🧹 Cleaned previous calls");
+
+      // Optional: reset media state if you have such a method, otherwise initialize local stream
+      if (mounted) {
+        await _resetMediaState();  // if you have this method, else remove
+        print("🔁 Reset media state");
+      }
+
+      await _remoteRenderer.initialize();
+      await _initLocalStream();
+      print("🎤 Local stream initialized");
+
+      _peerConnection = await _createPeerConnection(isCaller: true);
+      print("🔗 Peer connection created");
+
+      // Add audio tracks to peer connection
+      for (var track in _localStream!.getAudioTracks()) {
+        _peerConnection!.addTrack(track, _localStream!);
+      }
+
+      final offer = await _peerConnection!.createOffer();
+      await _peerConnection!.setLocalDescription(offer);
+      print("📤 Offer created and set");
+
+      final callDoc = await _firestore.collection('calls').add({
+        'callerId': _selfId,
+        'calleeId': _calleeId.trim(),
+        'type': 'offer',
+        'sdp': offer.sdp,
+        'sdpType': offer.type,
+        'timestamp': FieldValue.serverTimestamp(),
+        'callEnded': false,  // <-- important!
+      });
+
+      _callDocId = callDoc.id;
+      print("📁 Firestore call doc created: $_callDocId");
+
+      _listenForRemoteIceCandidates(isCaller: true);
+
+      await _callStateSub?.cancel(); // Cancel any previous listener
+      _callStateSub = _firestore.collection('calls').doc(_callDocId!).snapshots().listen((docSnapshot) async {
+        final data = docSnapshot.data();
+        if (data == null) return;
+
+        if (data['callEnded'] == true) {
+          print("📴 Call ended");
+          await _hangUp();
+          if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+          return;
+        }
+
+        if (data['type'] == 'answer') {
+          print("✅ Answer received");
+          final answer = RTCSessionDescription(data['sdp'], data['sdpType']);
+          await _peerConnection?.setRemoteDescription(answer);
+          if (mounted) {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId),
+            ));
+          }
+        }
+      });
+    } catch (e, st) {
+      print('❌ Error in _startCall: $e');
+      print(st);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to start call: $e")),
+      );
+    }
   }
 
   Future<void> _answerCall(Map<String, dynamic> offerData) async {
