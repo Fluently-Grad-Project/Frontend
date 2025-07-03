@@ -23,7 +23,7 @@ class _InCallScreenState extends State<InCallScreen> {
   StreamSubscription<DocumentSnapshot>? _callSub;
   String? _callDocId;
   String? _otherUserId;
-  String _otherUserName = 'Loading...';
+  String _otherUserName = 'Voice Chat';
 
   static const double headerHeight = 60.0;
 
@@ -36,25 +36,16 @@ class _InCallScreenState extends State<InCallScreen> {
   }
 
   Future<void> listenToCallEnd() async {
-    print("Listening for calls for selfId: ${widget.selfId}");
+    // find the active call where self is either caller or callee
     final query = await _firestore
         .collection('calls')
         .where('callEnded', isEqualTo: false)
         .get();
 
-    print("Active calls found: ${query.docs.length}");
     for (final doc in query.docs) {
       final data = doc.data();
-      print("Checking call doc id=${doc.id} data=$data");
       if (data['callerId'] == widget.selfId || data['calleeId'] == widget.selfId) {
         _callDocId = doc.id;
-        _otherUserId = (data['callerId'] == widget.selfId)
-            ? data['calleeId']
-            : data['callerId'];
-        print("Other user ID detected: $_otherUserId");
-
-        await _fetchOtherUserName();
-
         _callSub = _firestore
             .collection('calls')
             .doc(_callDocId)

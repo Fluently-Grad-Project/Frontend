@@ -559,7 +559,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => VoiceCallScreen(),
+              builder: (context) => MatchMadeProfile(userId: user.id),
             ),
           );
         },
