@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class NotificationService {
   final _firebaseMessaging = FirebaseMessaging.instance;
-  final String _apiBaseUrl = 'http://192.168.1.53:8001/fcm';
+  final String _apiBaseUrl = 'http://10.0.2.2:8001/fcm';
 
   Future<void> initFCM() async {
     await _firebaseMessaging.requestPermission();

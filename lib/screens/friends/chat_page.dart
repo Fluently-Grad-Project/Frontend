@@ -2,18 +2,23 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
+
 import 'package:provider/provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http; // For HTTP requests
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart'; // For WebSocket
-import 'package:fluently_frontend/screens/friends/friend_profile.dart';
+
 // import 'package:web_socket_channel/io.dart'; // if you need IOWebSocketChannel for specific headers, though query params are usually fine
 
 // Adjust path as needed
 import '../../models/user_model.dart';
-import '../../providers/onboarding_provider.dart';
+
+import '../../providers/user_provider.dart';
+import '../../services/refresh_token_service.dart';
+import 'friend_profile.dart';
 
 // --- Placeholder for current user info ---
 // In a real app, this would come from your auth service/state management
@@ -42,16 +47,6 @@ MessageStatus _parseMessageStatus(String? statusStr) {
   }
 }
 
-String _messageStatusToString(MessageStatus status) {
-  switch (status) {
-    case MessageStatus.sending: return 'sending';
-    case MessageStatus.sent: return 'sent';
-    case MessageStatus.delivered: return 'delivered';
-    case MessageStatus.read: return 'read';
-    case MessageStatus.failed: return 'failed';
-    case MessageStatus.none: return 'none';
-  }
-}
 
 
 class ChatMessage {
@@ -163,7 +158,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    _fetchChatHistory();
+    _loadInitialData();
     _connectWebSocket();
   }
 
@@ -174,51 +169,189 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+
+  Future<void> _loadInitialData() async {
+    await _fetchChatHistory(); // Wait for history to load
+    // After history is fetched and messages are populated
+    if (mounted && _messages.isNotEmpty) {
+      // Mark messages from the current chatUser as read
+      _markMessagesAsRead(widget.chatUser.id);
+    }
+  }
+
   Future<void> _fetchChatHistory() async {
-    final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+    print("DEBUG: _fetchChatHistory called.");
 
+    if (_isLoadingHistory) {
+      print("DEBUG: _fetchChatHistory: Already loading history, returning.");
+      return;
+    }
 
-    if (_isLoadingHistory) return;
     setState(() {
       _isLoadingHistory = true;
       // Optionally show a loading indicator for history
     });
+    print("DEBUG: _fetchChatHistory: Set _isLoadingHistory to true.");
+
+    final SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+      print("DEBUG: _fetchChatHistory: SharedPreferences instance obtained.");
+    } catch (e) {
+      print("DEBUG: _fetchChatHistory: ERROR obtaining SharedPreferences: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error accessing storage: $e')),
+        );
+      }
+      return;
+    }
+
+    final String? token = prefs.getString("token");
+    print("DEBUG: _fetchChatHistory: Token from prefs: '$token'");
+
+    if (token == null || token.isEmpty) {
+      print("DEBUG: _fetchChatHistory: Token is null or empty. Cannot fetch history.");
+      // Potentially handle this by trying to refresh token or redirecting to login
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authentication token not found. Please log in again.'), backgroundColor: Colors.red),
+        );
+        // Consider navigating to login: Navigator.pushReplacementNamed(context, '/login');
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
+      return;
+    }
+
+    UserProvider currentUserProvider;
+    try {
+      // Ensure context is valid before using Provider.of
+      if (!mounted) {
+        print("DEBUG: _fetchChatHistory: Context is not mounted before accessing UserProvider. Returning.");
+        setState(() { _isLoadingHistory = false; });
+        return;
+      }
+      currentUserProvider = Provider.of<UserProvider>(context, listen: false);
+      print("DEBUG: _fetchChatHistory: UserProvider obtained.");
+    } catch (e) {
+      print("DEBUG: _fetchChatHistory: ERROR obtaining UserProvider: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error accessing user data: $e')),
+        );
+      }
+      return;
+    }
+
+    final User? currentUser = currentUserProvider.current;
+    if (currentUser == null) {
+      print("DEBUG: _fetchChatHistory: currentUser from UserProvider is NULL.");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current user data not available. Please try again.'), backgroundColor: Colors.red),
+        );
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
+      return;
+    }
+    print("DEBUG: _fetchChatHistory: Current user ID: ${currentUser.id}");
+    print("DEBUG: _fetchChatHistory: Target chat user ID (receiver_id): ${widget.chatUser.id}");
 
 
     try {
+      final targetUrl = 'http://10.0.2.2:8000/chat/history?receiver_id=${widget.chatUser.id}';
+      print("DEBUG: _fetchChatHistory: Sending API request to: $targetUrl");
+      print("DEBUG: _fetchChatHistory: Authorization Header: 'Bearer $token'");
+
       final response = await http.get(
-        Uri.parse('http://10.0.2.2:8000/chat/history?receiver_id=${widget.chatUser.id}'),
+        Uri.parse(targetUrl),
         headers: {
-          'Authorization': 'Bearer ${prefs.getString("token")}',
-          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // Re-check if prefs.getString("token") was indeed correct
         },
       );
-
+      print("DEBUG: _fetchChatHistory: API response received. Status code: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        List<dynamic> historyJson = jsonDecode(response.body);
+        print("DEBUG: _fetchChatHistory: Response Body: ${response.body}");
+        List<dynamic> historyJson;
+        try {
+          historyJson = jsonDecode(response.body);
+          print("DEBUG: _fetchChatHistory: Successfully decoded JSON. Number of history items: ${historyJson.length}");
+        } catch (e) {
+          print("DEBUG: _fetchChatHistory: ERROR decoding JSON response: $e");
+          print("DEBUG: _fetchChatHistory: Malformed JSON was: ${response.body}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Received malformed data from server.')),
+            );
+          }
+          return; // Exit here as we can't process further
+        }
+
         final List<ChatMessage> historyMessages = historyJson
-            .map((json) => ChatMessage.fromHistoryJson(json, onboardingProvider.data.id!))
+            .map((jsonItem) {
+          print("DEBUG: _fetchChatHistory: Mapping JSON item: $jsonItem");
+          // Add a null check for jsonItem before passing to fromHistoryJson if it can be null
+          if (jsonItem == null) {
+            print("DEBUG: _fetchChatHistory: WARNING - JSON item in history list is null.");
+            return null; // or handle appropriately
+          }
+          try {
+            return ChatMessage.fromHistoryJson(jsonItem as Map<String, dynamic>, currentUser.id);
+          } catch (e) {
+            print("DEBUG: _fetchChatHistory: ERROR in ChatMessage.fromHistoryJson for item $jsonItem: $e");
+            return null; // Skip problematic items
+          }
+        })
+            .whereType<ChatMessage>() // This will filter out any nulls if you return null for bad items
             .toList();
+
+        print("DEBUG: _fetchChatHistory: Successfully mapped ${historyMessages.length} messages.");
 
         if (mounted) {
           setState(() {
             _messages.addAll(historyMessages);
             _messages.sort((a, b) => b.timestamp.compareTo(a.timestamp)); // Newest first
+            print("DEBUG: _fetchChatHistory: Messages added to state and sorted. Total messages: ${_messages.length}");
           });
         }
+      } else if (response.statusCode == 401) {
+        print("DEBUG: _fetchChatHistory: Unauthorized (401). Current token: '$token'. Attempting refresh.");
+        // Ensure refreshToken is awaited and its success is checked
+        bool refreshed = await refreshToken(); // Assuming refreshToken returns bool
+        if (refreshed) {
+          print("DEBUG: _fetchChatHistory: Token refreshed successfully. Retrying _fetchChatHistory.");
+          _fetchChatHistory(); // Recursive call, be mindful of potential infinite loops if refresh fails repeatedly
+        } else {
+          print("DEBUG: _fetchChatHistory: Token refresh failed. User may need to log in again.");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please log in again.'), backgroundColor: Colors.red),
+            );
+            // Potentially navigate to login screen
+          }
+        }
       } else {
-        // Handle error (e.g., show a Snackbar)
-        print('Failed to load chat history: ${response.statusCode} ${response.body}');
+        print('DEBUG: _fetchChatHistory: Failed to load chat history. Status: ${response.statusCode}, Body: ${response.body}');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load chat history: ${response.reasonPhrase}')),
+            SnackBar(content: Text('Failed to load chat history: ${response.reasonPhrase} (Status: ${response.statusCode})')),
           );
         }
       }
-    } catch (e) {
-      print('Error fetching chat history: $e');
+    } catch (e, stackTrace) { // Added stackTrace for more detailed error
+      print('DEBUG: _fetchChatHistory: CRITICAL ERROR fetching chat history: $e');
+      print('DEBUG: _fetchChatHistory: StackTrace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading history: $e')),
@@ -229,15 +362,125 @@ class _ChatPageState extends State<ChatPage> {
         setState(() {
           _isLoadingHistory = false;
         });
+        print("DEBUG: _fetchChatHistory: Set _isLoadingHistory to false in finally block.");
+      } else {
+        print("DEBUG: _fetchChatHistory: Not mounted in finally block, cannot set state.");
+      }
+    }
+  }
+
+
+  Future<void> _markMessagesAsRead(int senderId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('token');
+
+    if (token == null) {
+      print("ChatPage: Cannot mark messages as read. User not authenticated.");
+      // Optionally show a message to the user or attempt refresh token logic
+      return;
+    }
+
+    // Check if there are any unread messages from this sender before making the call
+    bool hasUnreadMessagesFromSender = _messages.any((msg) =>
+    !msg.isSentByMe && // Message is received
+        msg.senderId == senderId && // From the specific sender
+        msg.status != MessageStatus.read && // Is not already read
+        msg.status != MessageStatus.sending && // Not a client-side only status
+        msg.status != MessageStatus.failed
+    );
+
+    if (!hasUnreadMessagesFromSender) {
+      print("ChatPage: No unread messages from sender $senderId to mark as read.");
+      return;
+    }
+
+    final String apiUrl = "http://10.0.2.2:8000/chat/mark-as-read/$senderId";
+    print("ChatPage: Marking messages from sender $senderId as read. URL: $apiUrl");
+
+    try {
+      final dio = Dio(); // You might want to use a shared Dio instance
+      final response = await dio.post(
+        apiUrl,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) { // 204 No Content is also a success
+        print("ChatPage: Successfully marked messages from sender $senderId as read via API.");
+        if (mounted) {
+          setState(() {
+            for (var message in _messages) {
+              if (!message.isSentByMe && message.senderId == senderId && message.status != MessageStatus.read) {
+                message.status = MessageStatus.read;
+              }
+            }
+            // Optional: If you sort messages by status or have UI elements dependent on read counts,
+            // you might need to re-sort or explicitly trigger UI updates here.
+            // For now, updating individual message.status should be picked up by ListView.builder.
+          });
+        }
+      } else if (response.statusCode == 401) {
+        print("ChatPage: Unauthorized to mark messages as read. Attempting token refresh.");
+        bool refreshed = await refreshToken(); // Assuming refreshToken() is accessible
+        if (refreshed) {
+          _markMessagesAsRead(senderId); // Retry after successful refresh
+        } else {
+          print("ChatPage: Token refresh failed. Could not mark messages as read.");
+          if(mounted){
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please try again.'),backgroundColor: Colors.orange,),
+            );
+          }
+        }
+      }
+      else {
+        print("ChatPage: Failed to mark messages as read. Status: ${response.statusCode}, Body: ${response.data}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not update read status: ${response.statusCode}')),
+          );
+        }
+      }
+    } on DioException catch (e) {
+      print("ChatPage: DioException marking messages as read: ${e.message}");
+      if (e.response?.statusCode == 401) {
+        print("ChatPage: Unauthorized (DioException). Attempting token refresh.");
+        bool refreshed = await refreshToken();
+        if (refreshed) {
+          _markMessagesAsRead(senderId); // Retry
+        } else {
+          print("ChatPage: Token refresh failed (DioException).");
+          if(mounted){
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Session expired. Please try again.'),backgroundColor: Colors.orange,),
+            );
+          }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating read status: ${e.message}')),
+        );
+      }
+    }
+    catch (e) {
+      print("ChatPage: Unexpected error marking messages as read: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
       }
     }
   }
 
   Future<void> _connectWebSocket() async {
     if (_isConnectedToWebSocket || _channel != null) return; // Already connected or trying
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+    final currentUser = Provider.of<UserProvider>(context, listen: false);
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
+    refreshToken();
     final wsUrl = Uri.parse('ws://10.0.2.2:8000/ws/chat?token=${prefs.getString("token")}');
     print("ChatPage: Attempting to connect to WebSocket: $wsUrl");
     setState(() {
@@ -362,7 +605,7 @@ class _ChatPageState extends State<ChatPage> {
           }
 
           // Check if the sender is me (based on name)
-          if (potentialEchoSenderName == onboardingProvider.data.name) {
+          if (potentialEchoSenderName == (currentUser.current!.firstName! + " " + currentUser.current!.lastName!)) {
             final recentlySentMessageIndex = _messages.indexWhere((m) =>
             m.isSentByMe &&
                 m.text == potentialEchoTextContent &&
@@ -392,7 +635,7 @@ class _ChatPageState extends State<ChatPage> {
 
           final newMessage = ChatMessage.fromWebSocketString(
             receivedString,
-            onboardingProvider.data.id!,
+            currentUser.current!.id!,
             widget.chatUser,
           );
 
@@ -463,7 +706,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _sendMessage() {
-    final onboardingProvider = Provider.of<OnboardingProvider>(context, listen: false);
+    final currentUser = Provider.of<UserProvider>(context, listen: false);
     if (_messageController.text.trim().isEmpty) return;
     if (_channel == null || !_isConnectedToWebSocket) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -475,7 +718,7 @@ class _ChatPageState extends State<ChatPage> {
       final clientMessageId = _generateClientMessageId();
       final newMessage = ChatMessage(
         id: clientMessageId,
-        senderId: onboardingProvider.data.id!,
+        senderId: currentUser.current!.id!,
         receiverId: widget.chatUser.id,
         text: _messageController.text.trim(),
         timestamp: DateTime.now(),
@@ -495,7 +738,7 @@ class _ChatPageState extends State<ChatPage> {
     // Add to UI optimistically with 'sending' status
     final newMessage = ChatMessage(
       id: clientMessageId,
-      senderId: onboardingProvider.data.id!,
+      senderId: currentUser.current!.id!,
       receiverId: widget.chatUser.id,
       text: messageText,
       timestamp: DateTime.now(),
@@ -617,7 +860,7 @@ class _ChatPageState extends State<ChatPage> {
 // Continuing in _ChatPageState
 
   Widget build(BuildContext context) {
-    final onboardingProvider = Provider.of<OnboardingProvider>(context);
+    final currentUser = Provider.of<UserProvider>(context);
     final bool canPop = Navigator.canPop(context);
     const Color headerColor = Color.fromARGB(255, 159, 134, 192); // Fluently purple
 
@@ -657,7 +900,7 @@ class _ChatPageState extends State<ChatPage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProfilePage(user: widget.chatUser)
+                                builder: (context) => ProfilePage(user: widget.chatUser)
                               // Example if FriendsProfilePage takes a User object:
                               // builder: (context) => FriendsProfilePage(user: widget.chatUser),
                             ),
@@ -672,7 +915,7 @@ class _ChatPageState extends State<ChatPage> {
                               radius: 20,
                               backgroundColor: headerColor.withOpacity(0.1),
                               backgroundImage: widget.chatUser.profile_image != null && widget.chatUser.profile_image!.isNotEmpty
-                                  ? NetworkImage(widget.chatUser.profile_image!)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${widget.chatUser.profile_image!}")
                                   : null,
                               child: widget.chatUser.profile_image == null || widget.chatUser.profile_image!.isEmpty
                                   ? Text(
@@ -717,7 +960,7 @@ class _ChatPageState extends State<ChatPage> {
                   final message = _messages[index];
                   // Determine if sender name should be shown (for received messages from other users)
                   bool showSenderName = !message.isSentByMe &&
-                      message.senderId != onboardingProvider.data.id! && // Should always be true for !isSentByMe
+                      message.senderId != currentUser.current!.id! && // Should always be true for !isSentByMe
                       widget.chatUser.name.isNotEmpty; // Or use a senderName field if available from WS
 
                   return Align(

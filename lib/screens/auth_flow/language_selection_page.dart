@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/onboarding_provider.dart';
+
+import '../../providers/onboarding_provider.dart';
 import 'proficiency_level_page.dart';
 
 class LanguageSelectionPage extends StatefulWidget {

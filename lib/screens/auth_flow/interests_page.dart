@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/onboarding_provider.dart';
+
+import '../../providers/onboarding_provider.dart';
 import 'account_creation_page.dart';
 
 class InterestsPage extends StatefulWidget {

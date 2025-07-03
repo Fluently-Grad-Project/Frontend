@@ -1,10 +1,9 @@
-import 'package:fluently_frontend/screens/auth_flow/terms_and_conditions_page.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../providers/onboarding_provider.dart';
 import 'login_page.dart';
 import 'language_selection_page.dart';
 import 'package:provider/provider.dart';
-import 'package:fluently_frontend/providers/onboarding_provider.dart';
+
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -34,7 +33,7 @@ class _SignUpPageState extends State<SignUpPage> {
       );
     } else if (!acceptedTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please accept the terms and conditions.')),
+        const SnackBar(content: Text('Please accept the terms.')),
       );
     }
   }
@@ -177,31 +176,8 @@ class _SignUpPageState extends State<SignUpPage> {
                 TextFormField(
                   obscureText: obscurePassword,
                   onChanged: (val) => onboardingProvider.data.password = val,
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Password cannot be empty';
-                    }
-                    if (val.length < 8) {
-                      return 'Password must be at least 8 characters';
-                    }
-                    // At least 1 uppercase letter
-                    if (!RegExp(r'[A-Z]').hasMatch(val)) {
-                      return 'Password must contain at least 1 uppercase letter';
-                    }
-                    // At least 1 lowercase letter
-                    if (!RegExp(r'[a-z]').hasMatch(val)) {
-                      return 'Password must contain at least 1 lowercase letter';
-                    }
-                    // At least 1 number
-                    if (!RegExp(r'\d').hasMatch(val)) {
-                      return 'Password must contain at least 1 number';
-                    }
-                    // At least 1 special character
-                    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(val)) {
-                      return 'Password must contain at least 1 special character';
-                    }
-                    return null;
-                  },
+                  validator: (val) =>
+                  val!.length < 8 ? 'Min 8 characters' : null,
                   decoration: InputDecoration(
                     hintText: 'Enter your password',
                     hintStyle: const TextStyle(color: Color(0xFFA2A2A2)),
@@ -209,7 +185,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     fillColor: Colors.white,
                     suffixIcon: IconButton(
                       icon: Icon(
-                        obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                         color: Colors.grey,
                       ),
                       onPressed: () {
@@ -222,54 +200,40 @@ class _SignUpPageState extends State<SignUpPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 16),
+
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: () => setState(() => acceptedTerms = !acceptedTerms),
+                      onTap: () =>
+                          setState(() => acceptedTerms = !acceptedTerms),
                       child: CircleAvatar(
                         radius: 12,
                         backgroundColor: acceptedTerms
                             ? const Color(0xFF9F86C0)
                             : Colors.white,
                         child: acceptedTerms
-                            ? const Icon(Icons.check, size: 16, color: Colors.white)
-                            : const Icon(Icons.circle_outlined, size: 16, color: Colors.grey),
+                            ? const Icon(Icons.check,
+                            size: 16, color: Colors.white)
+                            : const Icon(Icons.circle_outlined,
+                            size: 16, color: Colors.grey),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF9F86C0),
-                          ),
-                          children: [
-                            const TextSpan(text: 'I accept the '),
-                            TextSpan(
-                              text: 'terms and privacy policy',
-                              style: const TextStyle(
-                                decoration: TextDecoration.underline,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF9F86C0),
-                              ),
-                              recognizer: TapGestureRecognizer()
-                                ..onTap = () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const TermsAndConditionsPage()),
-                                  );
-                                },
-                            ),
-                          ],
+                    const SizedBox(width: 20),
+                    const Expanded(
+                      child: Text(
+                        'I accept the terms and privacy policy',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF9F86C0),
                         ),
                       ),
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: goToLanguageSelectionPage,

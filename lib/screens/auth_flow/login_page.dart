@@ -37,7 +37,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // Step 2: Backend Login
-      final url = Uri.parse("http://192.168.1.53:8000/auth/login");
+      final url = Uri.parse("http://10.0.2.2:8000/auth/login");
 
       final response = await http.post(
         url,
@@ -48,9 +48,11 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final accessToken = data["access_token"];
+        final refreshToken = data["refresh_token"];
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("token", accessToken);
+        await prefs.setString("refresh_token", refreshToken);
 
         Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
         final int userId = decodedToken["sub"] ?? decodedToken["user_id"];

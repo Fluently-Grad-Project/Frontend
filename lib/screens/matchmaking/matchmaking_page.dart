@@ -1,12 +1,15 @@
+import 'package:besso_fluently/screens/matchmaking/matchmade_profile_voicecall.dart';
+import 'package:besso_fluently/screens/matchmaking/user_chat_request_page.dart';
 import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
-
+import 'call_manager.dart';
 import 'package:flutter/material.dart';
 // Keep if you use rating bar in profile or elsewhere
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart'; // Ensure this path is correct and User model is updated
+import 'VoiceCallScreen.dart';
 import 'after_call_page.dart'; // Keep if used
-import 'call_page.dart'; // Keep if used
 import 'matchmade_profile_page.dart'; // Keep if used
 
 
@@ -20,6 +23,9 @@ class MatchmakingPage extends StatefulWidget {
 
 class _MatchmakingPageState extends State<MatchmakingPage> {
   int _selectedIndex = 2; // Default for 'Chat/Matchmaking'
+
+  final CallManager _callManager = CallManager();
+  bool _isCallDialogShowing = false;
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
@@ -75,6 +81,31 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     _selectedAgeRange = RangeValues(_minPossibleAge, _maxPossibleAge);
 
     _loadData();
+
+  }
+
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+
+  Future<String?> getFirebaseUidByEmail(String email) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.id; // Firestore document ID is the Firebase UID
+      }
+    } catch (e) {
+      print("Error fetching Firebase UID by email: $e");
+    }
+    return null;
   }
 
   Future<void> _loadData() async {
@@ -92,7 +123,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     });
 
     // 1. Fetch initial list of matched user IDs and similarity scores
-    String matchmakingUrl = "http://192.168.1.53:8000/matchmaking/get-matched-users?n_recommendations=5";
+    String matchmakingUrl = "http://10.0.2.2:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
     try {
@@ -168,7 +199,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   // Helper method to fetch individual user profile
   // Takes initialData from the matchmaking endpoint to preserve similarity_score and other direct fields.
   Future<User?> _fetchUserProfile(int userId, String? token, {required Map<String, dynamic> initialData}) async {
-    String profileUrl = "http://192.168.1.53:8000/users/$userId/profile";
+    String profileUrl = "http://10.0.2.2:8000/users/$userId/profile";
     try {
       print("MatchmakingPage: Fetching profile for user ID $userId from $profileUrl");
       Response profileRes = await _dio.get(
@@ -618,18 +649,37 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
                     radius: 22, // Adjusted radius
                     backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                     child: IconButton(
-                      icon: Icon(Icons.call, color: Theme.of(context).primaryColor, size: 24), // Adjusted size
-                      tooltip: "Call ${user.name}",
-                      splashRadius: 22,
-                      onPressed: () {
-                        print("MatchmakingPage: Call icon tapped for user: ${user.name}, ID: ${user.id}");
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => UserMakingCallPage(userId: user.id, userName: user.name),
-                          ),
-                        );
-                      },
+                        icon: Icon(Icons.call, color: Theme.of(context).primaryColor, size: 24), // Adjusted size
+                        tooltip: "Call ${user.name}",
+                        splashRadius: 22,
+                        onPressed: () async {
+                          print("MatchmakingPage: Call icon tapped for user: ${user.name}, email: ${user.email}");
+
+                          if (user.email == null) {
+                            print("Error: User email is null. Cannot fetch Firebase UID.");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Cannot start call. User email is missing.")),
+                            );
+                            return;
+                          }
+
+                          String? firebaseUid = await getFirebaseUidByEmail(user.email!);
+
+                          if (firebaseUid != null) {
+                            print("Firebase UID Lookup: Email '${user.email}' corresponds to UID '$firebaseUid'");
+
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => VoiceCallScreen(),
+                              ),
+                            );
+                          } else {
+                            print("Error: Could not find Firebase UID for ${user.email}");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text("Unable to start call. User not found in Firebase.")),
+                            );
+                          }
+                        }
                     ),
                   ),
                   const SizedBox(height: 6), // Space between call icon and rating

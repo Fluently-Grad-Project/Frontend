@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/onboarding_provider.dart';
+
+import '../../providers/onboarding_provider.dart';
 import 'interests_page.dart';
 
 class PracticingFrequencyPage extends StatefulWidget {

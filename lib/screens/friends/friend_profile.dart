@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:fluently_frontend/models/user_model.dart';
+
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../providers/onboarding_provider.dart';
+import '../../models/user_model.dart';
+import '../../services/refresh_token_service.dart';
+
+
 
 
 
@@ -70,18 +73,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
 
     // For example:
-   try {
-     final response = await _dio.get("http://10.0.2.2:8000/users/${user.id}/rating" // Fictional endpoint
-     );
-     if (response.statusCode == 200 && response.data != null && response.data['average_rating'] != null) {
-       _fetchedUserRating = (response.data['average_rating'] as num).toDouble();
-     } else {
-       _fetchedUserRating = user.rating; // Fallback to initial if any
-     }
-   } catch (e) {
-     print("Error fetching initial rating: $e");
-     _fetchedUserRating = user.rating; // Fallback
-   }
+    try {
+      final response = await _dio.get("http://10.0.2.2:8000/users/${user.id}/rating" // Fictional endpoint
+      );
+      if (response.statusCode == 200 && response.data != null && response.data['average_rating'] != null) {
+        _fetchedUserRating = (response.data['average_rating'] as num).toDouble();
+      } else {
+        _fetchedUserRating = user.rating; // Fallback to initial if any
+      }
+    } catch (e) {
+      print("Error fetching initial rating: $e");
+      _fetchedUserRating = user.rating; // Fallback
+    }
 
 
     // Simulating a fetch or using the initial rating passed
@@ -96,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _blockUserApiCall(String userIdToBlock, String userName) async {
     // Use 10.0.2.2 for Android Emulator to connect to localhost on your machine
-    final onboardingProvider = Provider.of<OnboardingProvider>(context);
+
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final String blockUserApiUrl = "http://10.0.2.2:8000/users/block-user/$userIdToBlock";
     print("Attempting to block user $userIdToBlock at $blockUserApiUrl");
@@ -125,9 +128,13 @@ class _ProfilePageState extends State<ProfilePage> {
             backgroundColor: const Color(0xFFA58DCA), // Or Colors.green
           ),
         );
-         if (Navigator.canPop(context)) {
-           Navigator.pop(context);
-         }
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+          Navigator.pop(context);
+        }
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _blockUserApiCall( userIdToBlock,  userName);
       } else {
         print("Error blocking user: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to block $userName. Status: ${response.statusCode}.";
@@ -256,7 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // report user API call
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    const String reportApiUrl = "http://10.0.2.2:8000/reports/"; // TODO: Ensure this URL is correct
+    const String reportApiUrl = "http://10.0.2.2:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -292,6 +299,9 @@ class _ProfilePageState extends State<ProfilePage> {
             backgroundColor: const Color(0xFFA58DCA),
           ),
         );
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _reportUserApiCall(userIdToReport, reason, scaffoldContext, reportedUserName);
       } else {
         ScaffoldMessenger.of(scaffoldContext).showSnackBar(
           SnackBar(content: Text('Error reporting: ${response.statusCode}'), backgroundColor: Colors.red),
@@ -301,7 +311,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       print('Error reporting user: $e');
       ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-        SnackBar(content: Text('An error occurred while reporting.'), backgroundColor: Colors.red),
+        SnackBar(content: Text("You've already submitted a report on this user"), backgroundColor: Colors.red),
       );
     }
   }
@@ -345,6 +355,9 @@ class _ProfilePageState extends State<ProfilePage> {
           _fetchedUserRating = ratingToSubmit;
           _isLoadingRating = false; // Rating is now set
         });
+      } else if (response.statusCode == 401) {
+        refreshToken();
+        _submitRating(ratingToSubmit);
       } else {
         print("Error submitting rating: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to submit rating. Status: ${response.statusCode}.";
@@ -447,8 +460,12 @@ class _ProfilePageState extends State<ProfilePage> {
                             CircleAvatar(
                               radius: 35,
                               backgroundColor: Colors.white,
-                              // TODO: Add backgroundImage: NetworkImage(user.profileImageUrl) if available
-                              child: Icon(Icons.person, color: headerColor, size: 40), // Fallback
+                              backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${user.profile_image!}")
+                                  : null,
+                              child: (user.profile_image == null || user.profile_image!.isEmpty)
+                                  ? Icon(Icons.person, color: headerColor, size: 40)
+                                  : null,
                             ),
                             const SizedBox(width: 20),
                             Expanded(

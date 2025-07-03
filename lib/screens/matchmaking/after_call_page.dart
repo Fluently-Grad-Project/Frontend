@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart';
+import '../../services/refresh_token_service.dart';
 
 
 // --- Report User Logic (Copied from your provided code) ---
@@ -69,7 +71,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       _user = null;
     });
 
-    final String apiUrl = "http://192.168.1.53:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://10.0.2.2:8000/users/${widget.userId}/profile";
     print("AfterCallPage: Fetching user profile from: $apiUrl for userId: ${widget.userId}");
 
     try {
@@ -164,16 +166,16 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
     final dio = Dio();
-    final String friendRequestApiUrl = "http://192.168.1.53:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
+    final String friendRequestApiUrl = "http://10.0.2.2:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
 
     try {
       final response = await dio.post(
-        friendRequestApiUrl,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer ${prefs.getString("token")}',
-          },
-        )
+          friendRequestApiUrl,
+          options: Options(
+            headers: {
+              'Authorization': 'Bearer ${prefs.getString("token")}',
+            },
+          )
 
       );
 
@@ -190,7 +192,11 @@ class _AfterCallPageState extends State<AfterCallPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Friend request sent to $recipientName!'), backgroundColor: const Color(0xFFA58DCA)),
         );
-      } else {
+      } else if (response.statusCode == 401){
+        refreshToken();
+        _sendFriendRequest(context, recipientUserId, recipientName);
+
+      }else {
         print('Error sending friend request: ${response.statusCode} - ${response.data}');
         setState(() {
           _friendRequestError = 'Error: ${response.statusCode}. Please try again.';
@@ -280,7 +286,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final dio = Dio();
-    const String reportApiUrl = "http://192.168.1.53:8000/reports/";
+    const String reportApiUrl = "http://10.0.2.2:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -295,17 +301,17 @@ class _AfterCallPageState extends State<AfterCallPage> {
     print("_reportUserApiCall: Reporting user $userIdToReport for ${reason.name} Priority: $priority");
     try {
       final response = await dio.post(
-        reportApiUrl,
-        data: {
-          "reported_user_id": userIdToReport,
-          "priority": priority,
-          "reason": reason.name
-        },
-        options:  Options(
-          headers: {
-            'Authorization': 'Bearer ${prefs.getString("token")}'
+          reportApiUrl,
+          data: {
+            "reported_user_id": userIdToReport,
+            "priority": priority,
+            "reason": reason.name
           },
-        )
+          options:  Options(
+            headers: {
+              'Authorization': 'Bearer ${prefs.getString("token")}'
+            },
+          )
       );
 
       if (!mounted) return;
@@ -317,7 +323,12 @@ class _AfterCallPageState extends State<AfterCallPage> {
             backgroundColor: const Color(0xFFA58DCA),
           ),
         );
-      } else {
+      }else if(response.statusCode == 401){
+        refreshToken();
+        _reportUserApiCall( userIdToReport, reason, scaffoldContext, reportedUserName);
+
+      }
+      else {
         ScaffoldMessenger.of(scaffoldContext).showSnackBar(
           SnackBar(content: Text('Error reporting: ${response.statusCode}'), backgroundColor: Colors.red),
         );
@@ -326,7 +337,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       if (!mounted) return;
       print('Error reporting user: $e');
       ScaffoldMessenger.of(scaffoldContext).showSnackBar(
-        SnackBar(content: Text('An error occurred while reporting.'), backgroundColor: Colors.red),
+        SnackBar(content: Text("You've already reported this user"), backgroundColor: Colors.red),
       );
     }
   }
@@ -349,7 +360,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
 
-    final String rateUserApiUrl = "http://192.168.1.53:8000/users/rate-user/${_user!.id}";
+    final String rateUserApiUrl = "http://10.0.2.2:8000/users/rate-user/${_user!.id}";
 
     print("Submitting rating $ratingToSubmit for user ${_user!.id} to $rateUserApiUrl");
 
@@ -381,7 +392,11 @@ class _AfterCallPageState extends State<AfterCallPage> {
           _isSubmittingRating = false;
         });
         // Optionally, refresh: await _fetchUserRating(_user!.id);
-      } else {
+      } else if (response.statusCode == 401){
+        refreshToken();
+        _submitRating(ratingToSubmit);
+      }
+      else {
         print("Error submitting rating: ${response.statusCode} - ${response.data}");
         String errorMessage = "Failed to submit rating. Status: ${response.statusCode}.";
         if (response.data != null && response.data['detail'] != null) {
@@ -565,7 +580,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
                               backgroundColor: Colors.white,
                               // Use userToDisplay.profileImage (or appropriate field from your User model)
                               backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
-                                  ? NetworkImage(userToDisplay.profile_image!)
+                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
                                   : null,
                               child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)
@@ -684,7 +699,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
 
                     // --- Rating Section Title ---
                     Text(
-                      "Your Rating for ${userToDisplay.firstName ?? userToDisplay.name}",
+                      "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 20,

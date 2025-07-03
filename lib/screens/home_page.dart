@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'Profile/profile_page.dart';
 import 'ai_chat_page.dart';
@@ -27,6 +28,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   final FlutterTts flutterTts = FlutterTts();
 
+
   bool isLeaderboardPressed = false;
   bool isMatchPressed = false;
 
@@ -52,7 +54,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchWordOfTheDay() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.53:8001/word-of-the-day/today'),
+        Uri.parse('http://10.0.2.2:8001/word-of-the-day/today'),
         headers: {'accept': 'application/json'},
       );
 
@@ -76,36 +78,55 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> fetchStreak() async {
-    final url = Uri.parse('http://192.168.1.53:8000/activity/get_streaks');
+    final url = Uri.parse('http://10.0.2.2:8000/activity/get_streaks');
 
     try {
-      final response = await http.get(url);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'accept': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
           currentStreak = data['streak'] ?? 0;
-          isLoadingStreak = false; // ✅ mark loading as false
+          isLoadingStreak = false;
         });
+        print('✅ Fetched streak correctly: $currentStreak');
       } else {
         setState(() {
-          isLoadingStreak = false; // ✅ even on failure
+          isLoadingStreak = false;
         });
         print('❌ Failed to fetch streaks: ${response.body}');
       }
     } catch (e) {
       setState(() {
-        isLoadingStreak = false; // ✅ even on error
+        isLoadingStreak = false;
       });
       print('❌ Error fetching streak: $e');
     }
   }
 
   Future<void> fetchPracticeHours() async {
-    final url = Uri.parse('http://192.168.1.53:8000/activity/get_practice_hours');
+    final url = Uri.parse('http://10.0.2.2:8000/activity/get_practice_hours');
 
     try {
-      final response = await http.get(url);
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'accept': 'application/json',
+        },
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -117,19 +138,20 @@ class _HomePageState extends State<HomePage> {
         final formattedTime = '${hours}h ${minutes}m';
 
         setState(() {
-          totalTime = '${hours}h ${minutes}m';
+          totalTime = formattedTime;
           isLoadingTime = false;
         });
+        print('✅ Fetched practice hours correctly: $formattedTime');
       } else {
         setState(() {
-          totalTime = '0h 0m'; // fallback for failure
+          totalTime = '0h 0m';
           isLoadingTime = false;
         });
         print('❌ Failed to fetch practice hours: ${response.body}');
       }
     } catch (e) {
       setState(() {
-        totalTime = '0h 0m'; // fallback for error
+        totalTime = '0h 0m';
         isLoadingTime = false;
       });
       print('❌ Error fetching practice hours: $e');
