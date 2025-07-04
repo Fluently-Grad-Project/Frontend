@@ -84,6 +84,8 @@ class _HomePageState extends State<HomePage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
 
+      print('🔑 Token used: $token');
+
       final response = await http.get(
         url,
         headers: {
@@ -93,6 +95,7 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (response.statusCode == 200) {
+        print('📦 Raw response: ${response.body}');
         final data = jsonDecode(response.body);
         setState(() {
           currentStreak = data['streak'] ?? 0;
@@ -129,8 +132,7 @@ class _HomePageState extends State<HomePage> {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final totalSeconds = data['total_time'] ?? 0;
+        final totalSeconds = int.tryParse(response.body.trim()) ?? 0;
 
         final hours = totalSeconds ~/ 3600;
         final minutes = (totalSeconds % 3600) ~/ 60;

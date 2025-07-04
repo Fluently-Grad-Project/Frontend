@@ -6,9 +6,14 @@ import 'user_making_call_page.dart';
 class UserAcceptCallPage extends StatelessWidget {
   final int userId;
   final String userName;
+  final String firebaseUid;
 
-  const UserAcceptCallPage({Key? key, required this.userId, required this.userName}) : super(key: key);
-
+  const UserAcceptCallPage({
+    Key? key,
+    required this.userId,
+    required this.userName,
+    required this.firebaseUid, // include this
+  }) : super(key: key);
   static const double headerHeight = 60.0;
 
   @override
@@ -87,12 +92,7 @@ class UserAcceptCallPage extends StatelessWidget {
                 if (await Vibration.hasVibrator() ?? false) {
                   Vibration.vibrate(duration: 200);
                 }
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AfterCallPage(userId: userId),
-                  ),
-                );
+                Navigator.pop(context);
               },
               child: Center(
                 child: Image.asset(
