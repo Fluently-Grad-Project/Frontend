@@ -1,4 +1,3 @@
-import 'VoiceCallService.dart';
 import 'user_accept_call_page.dart';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -7,19 +6,10 @@ import 'dart:async';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 class UserChatRequestPage extends StatefulWidget {
-  final String  callerId;
+  final int callerId;
   final String callerName;
-  final String firebaseUid;
-  final Map<String, dynamic> offerData;
 
-  const UserChatRequestPage({
-    Key? key,
-    required this.callerId,
-    required this.callerName,
-    required this.firebaseUid,
-    required this.offerData, // ✅ Add this
-  }) : super(key: key);
-
+  const UserChatRequestPage({Key? key, required this.callerId, required this.callerName}) : super(key: key);
   @override
   State<UserChatRequestPage> createState() => _UserChatRequestPageState();
 }
@@ -165,9 +155,16 @@ class _UserChatRequestPageState extends State<UserChatRequestPage> {
                         _buildGlowingButton(
                           iconPath: 'assets/accept-icon.png',
                           onTap: () => _animateButton(() {
-                            Navigator.pop(context, true); // Return "accepted" result
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserAcceptCallPage(
+                                  userId: widget.callerId,
+                                  userName: widget.callerName,
+                                ),
+                              ),
+                            );
                           }, true),
-
                           scale: _acceptScale,
                           glowColor: Colors.green,
                         ),

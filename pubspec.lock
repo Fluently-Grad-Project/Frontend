@@ -485,10 +485,10 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "17dbc1132c6c7a4d30a93c7f52fbf94169c88ae8"
+      resolved-ref: "1dc58d971a72ad6ccfc98d88c4807f14a6c853e3"
       url: "https://github.com/flutter-webrtc/flutter-webrtc.git"
     source: git
-    version: "0.14.1"
+    version: "0.14.2"
   google_generative_ai:
     dependency: "direct main"
     description:

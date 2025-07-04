@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import '../../VoiceChat/call_signaling_manager.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import '../../services/google_auth_service.dart';
@@ -51,6 +51,9 @@ class _LoginPageState extends State<LoginPage> {
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString("token", accessToken);
+
+        // ✅ Initialize CallSignalingManager
+        CallSignalingManager.instance.initialize(accessToken);
 
         Map<String, dynamic> decodedToken = JwtDecoder.decode(accessToken);
         final int userId = decodedToken["sub"] ?? decodedToken["user_id"];
