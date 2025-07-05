@@ -17,7 +17,7 @@ class UserChatRequestPage extends StatefulWidget {
     required this.callerId,
     required this.callerName,
     required this.firebaseUid,
-    required this.offerData, // ✅ Add this
+    required this.offerData,
   }) : super(key: key);
 
   @override

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import '../../services/call_service.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
 import '../../services/google_auth_service.dart';
@@ -59,6 +59,7 @@ class _LoginPageState extends State<LoginPage> {
 
         if (context.mounted) {
           await context.read<UserProvider>().fetchById(userId);
+
           Navigator.pushReplacementNamed(context, '/home');
         }
       } else {

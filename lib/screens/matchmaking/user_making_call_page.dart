@@ -172,10 +172,8 @@ class _UserMakingCallPageState extends State<UserMakingCallPage> {
                 if (await Vibration.hasVibrator() ?? false) {
                   Vibration.vibrate(duration: 200);
                 }
-                await widget.hangUp(); // ✅ Ensure full cleanup
-                if (mounted) Navigator.of(context).pop(); // ⬅ Then pop the page
+                Navigator.of(context).pop();
               },
-
               child: Center(
                 child: Image.asset(
                   'assets/end-call-icon.png',

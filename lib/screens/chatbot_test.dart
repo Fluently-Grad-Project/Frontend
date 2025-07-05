@@ -65,7 +65,7 @@ class _AudioChatScreenState extends State<AudioChatScreen> {
       // Create multipart request
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.1.16:3000/api/chat'),
+        Uri.parse('http://192.168.1.53:3000/api/chat'),
       );
 
       // Add audio file

@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'package:record/record.dart';
-import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';  // Make sure you have flutter_webrtc imported
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+import 'after_call_page.dart';  // Make sure you have flutter_webrtc imported
 
 class InCallScreen extends StatefulWidget {
   final Future<void> Function() hangUp;
@@ -25,19 +22,10 @@ class InCallScreen extends StatefulWidget {
 
 class _InCallScreenState extends State<InCallScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final Record _recorder = Record();
-  Timer? _recordTimer;
   StreamSubscription<DocumentSnapshot>? _callSub;
   String? _callDocId;
   String? _otherUserId;
   String _otherUserName = 'Voice Chat';
-  String? _jwtToken;
-  DateTime? _callStartTime;
-  DateTime? _callEndTime;
-
-
-
-  Dio _dio = Dio();
 
   static const double headerHeight = 60.0;
 
@@ -46,138 +34,11 @@ class _InCallScreenState extends State<InCallScreen> {
   @override
   void initState() {
     super.initState();
-    _loadJwtToken(); // 👇 load it first
     listenToCallEnd();
-    startAudioRecordingLoop();
-    _callStartTime = DateTime.now();
   }
-
-
-  Future<void> _loadJwtToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _jwtToken = prefs.getString('token');
-    });
-  }
-
-
-  Future<void> startAudioRecordingLoop() async {
-    print("🎙️ Starting audio recording loop...");
-
-    final hasPermission = await _recorder.hasPermission();
-    print("🔐 Microphone permission: $hasPermission");
-
-    if (!hasPermission) return;
-
-    _recordTimer = Timer.periodic(Duration(seconds: 5), (_) async {
-      print("⏱ Recording cycle triggered...");
-
-      if (await _recorder.isRecording()) {
-        print("🛑 Stopping current recording...");
-        final filePath = await _recorder.stop();
-
-        if (filePath != null) {
-          print("📤 Sending audio file: $filePath");
-          await sendAudioToBackend(File(filePath));
-        }
-      }
-
-      final tempDir = await getTemporaryDirectory();
-      final newFilePath = '${tempDir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.wav';
-
-      print("🎬 Starting new recording: $newFilePath");
-
-      await _recorder.start(
-        path: newFilePath,
-        encoder: AudioEncoder.wav,
-        bitRate: 128000,
-        samplingRate: 16000,
-      );
-    });
-  }
-
-  Future<void> sendAudioToBackend(File audioFile) async {
-    try {
-      print("📡 Sending audio to backend...");
-
-      final formData = FormData.fromMap({
-        'file': await MultipartFile.fromFile(audioFile.path, filename: 'clip.wav'),
-      });
-
-      final response = await _dio.post(
-        'http://192.168.1.53:8001/analyze-audio',
-        data: formData,
-        options: Options(
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            if (_jwtToken != null) 'Authorization': 'Bearer $_jwtToken',
-          },
-        ),
-      );
-
-      print("✅ Audio sent successfully: ${response.statusCode} - ${response.data}");
-
-      // ✅ Delete file safely after successful upload
-      try {
-        if (await audioFile.exists()) {
-          await audioFile.delete();
-          print("🧹 Temp file deleted: ${audioFile.path}");
-        }
-      } catch (e) {
-        print("⚠️ Failed to delete temp file: $e");
-      }
-
-    } catch (e) {
-      print("❌ Error sending audio to backend: $e");
-    }
-  }
-
-  Future<void> sendCallDuration() async {
-    if (_callStartTime == null) return;
-
-    _callEndTime = DateTime.now();
-    final duration = _callEndTime!.difference(_callStartTime!);
-    final totalMinutes = duration.inMinutes;
-    final hours = totalMinutes ~/ 60;
-    final minutes = totalMinutes % 60;
-
-    print("🕒 Call duration: $hours hours, $minutes minutes");
-
-    try {
-      final response = await _dio.patch(
-        'http://192.168.1.53:8000/activity/update_hours',
-        data: {
-          'hours_to_add': hours,
-          'minutes': minutes,
-        },
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            if (_jwtToken != null) 'Authorization': 'Bearer $_jwtToken',
-          },
-        ),
-      );
-
-      print("✅ Call duration sent: ${response.statusCode}");
-    } catch (e) {
-      print("❌ Failed to send call duration: $e");
-    }
-  }
-
-
-  Future<void> stopRecordingLoop() async {
-    print("🛑 Stopping audio recording loop...");
-    _recordTimer?.cancel();
-    _recordTimer = null;
-
-    if (await _recorder.isRecording()) {
-      print("🛑 Stopping final recording...");
-      await _recorder.stop();
-    }
-  }
-
 
   Future<void> listenToCallEnd() async {
+    // find the active call where self is either caller or callee
     final query = await _firestore
         .collection('calls')
         .where('callEnded', isEqualTo: false)
@@ -185,21 +46,8 @@ class _InCallScreenState extends State<InCallScreen> {
 
     for (final doc in query.docs) {
       final data = doc.data();
-
       if (data['callerId'] == widget.selfId || data['calleeId'] == widget.selfId) {
         _callDocId = doc.id;
-
-        // ✅ Set the other user's ID
-        if (data['callerId'] == widget.selfId) {
-          _otherUserId = data['calleeId'];
-        } else {
-          _otherUserId = data['callerId'];
-        }
-
-        // ✅ Fetch the other user's name
-        await _fetchOtherUserName();
-
-        // ✅ Listen for callEnded
         _callSub = _firestore
             .collection('calls')
             .doc(_callDocId)
@@ -207,14 +55,33 @@ class _InCallScreenState extends State<InCallScreen> {
             .listen((snapshot) async {
           final callData = snapshot.data();
           if (callData != null && callData['callEnded'] == true) {
-            print("📴 Remote user ended call (fallback listener)");
-            await sendCallDuration();
+            print("📴 Remote user ended call");
+
+
+            final otherUserUid = callData['callerId'] == widget.selfId
+                ? callData['calleeId']
+                : callData['callerId'];
+
+            _otherUserId = otherUserUid; // 👈 store Firebase UID
+            _fetchOtherUserName();       // 👈 call method to fetch username from Firestore
+
+
+            final otherUserId = await getBackendUserIdFromFirebaseUid(otherUserUid);
+
             await widget.hangUp();
-            if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+
+            if (mounted && otherUserId != null) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => AfterCallPage(userId: otherUserId),
+                ),
+              );
+            } else {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
           }
         });
-
-        break; // stop after finding first match
+        break;
       }
     }
   }
@@ -250,7 +117,6 @@ class _InCallScreenState extends State<InCallScreen> {
 
   @override
   void dispose() {
-    stopRecordingLoop();
     _callSub?.cancel();
     super.dispose();
   }
@@ -336,9 +202,29 @@ class _InCallScreenState extends State<InCallScreen> {
             // End call button below the big icon
             GestureDetector(
               onTap: () async {
-                await sendCallDuration();
                 await widget.hangUp();
-                if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+
+                // Get the call document again
+                final doc = await _firestore.collection('calls').doc(_callDocId).get();
+                final data = doc.data();
+
+                if (data != null) {
+                  final otherUserUid = data['callerId'] == widget.selfId
+                      ? data['calleeId']
+                      : data['callerId'];
+
+                  final otherUserId = await getBackendUserIdFromFirebaseUid(otherUserUid);
+
+                  if (mounted && otherUserId != null) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => AfterCallPage(userId: otherUserId),
+                      ),
+                    );
+                  } else {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                }
               },
               child: Center(
                 child: Image.asset(
@@ -348,7 +234,6 @@ class _InCallScreenState extends State<InCallScreen> {
                 ),
               ),
             ),
-
             const Spacer(),
           ],
         ),

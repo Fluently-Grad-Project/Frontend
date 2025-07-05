@@ -12,7 +12,7 @@ class UserAcceptCallPage extends StatelessWidget {
     Key? key,
     required this.userId,
     required this.userName,
-    required this.firebaseUid, // include this
+    required this.firebaseUid,
   }) : super(key: key);
   static const double headerHeight = 60.0;
 
@@ -92,7 +92,12 @@ class UserAcceptCallPage extends StatelessWidget {
                 if (await Vibration.hasVibrator() ?? false) {
                   Vibration.vibrate(duration: 200);
                 }
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AfterCallPage(userId: userId),
+                  ),
+                );
               },
               child: Center(
                 child: Image.asset(

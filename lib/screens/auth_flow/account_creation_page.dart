@@ -65,7 +65,7 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-        final userId = responseData['id'] ?? responseData['user_id'];
+        final userId = responseData['user']?['id'];
 
         // ✅ Step 4: Store in Firestore
         await FirebaseFirestore.instance
@@ -75,14 +75,14 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
           'uid': firebaseUid,
           'email': onboardingData.email,
           'user_id': userId,
-          'first_name': onboardingData.firstName,   // Add this
-          'last_name': onboardingData.lastName,     // Add this
-          'username': "${onboardingData.firstName} ${onboardingData.lastName}".trim(), // Optional convenience field
+          'first_name': onboardingData.firstName,
+          'last_name': onboardingData.lastName,
+          'username': "${onboardingData.firstName} ${onboardingData.lastName}".trim(),
         });
 
 
         if (mounted) {
-          Navigator.pushNamed(context, '/home');
+          Navigator.pushNamed(context, '/login');
         }
       } else {
         setState(() {

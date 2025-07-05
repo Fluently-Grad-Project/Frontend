@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import '../../services/refresh_token_service.dart';
 import 'chat_page.dart';
 
 
@@ -40,6 +41,7 @@ class _FriendsPageState extends State<FriendsPage> {
     _loadInitialData(); // Renamed for clarity
   }
 
+
   // Fetches the initial full list of users
   Future<void> _loadInitialData() async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
@@ -48,6 +50,7 @@ class _FriendsPageState extends State<FriendsPage> {
     setState(() {
       _isLoading = true;
     });
+    refreshToken();
 
     String url = "http://192.168.1.53:8000/friends/get-friend-list";
     try {
@@ -55,7 +58,7 @@ class _FriendsPageState extends State<FriendsPage> {
           options: Options(
               headers: {'Authorization': 'Bearer ${prefs.getString("token")}'
               }
-              )
+          )
       );
       print("FriendsPage: Response status: ${res.statusCode}");
 
@@ -231,7 +234,7 @@ class _FriendsPageState extends State<FriendsPage> {
               radius: 28,
               backgroundColor: Colors.grey[300],
               backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                  ? NetworkImage(user.profile_image!)
+                  ? NetworkImage("http://192.168.1.53/uploads/profile_pics/${user.profile_image!}")
                   : null,
               onBackgroundImageError: (user.profile_image != null && user.profile_image!.isNotEmpty)
                   ? (exception, stackTrace) {
@@ -311,16 +314,16 @@ class _FriendsPageState extends State<FriendsPage> {
           "Friends",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.black87),
         ),
-         actions: [
-           IconButton(
-             icon: Icon(Icons.refresh),
-             onPressed: () {
-               _currentSearchText = ""; // Clear search on manual refresh
-               // Consider clearing the text field as well if you have a controller for it
-               _loadInitialData();
-             },
-           )
-         ],
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              _currentSearchText = ""; // Clear search on manual refresh
+              // Consider clearing the text field as well if you have a controller for it
+              _loadInitialData();
+            },
+          )
+        ],
       ),
       body: Column(
         children: [
