@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
@@ -47,14 +48,14 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     fetchWordOfTheDay();
-    fetchStreak();
+    fetchStreaks();
     fetchPracticeHours();
   }
 
   Future<void> fetchWordOfTheDay() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.53:8001/word-of-the-day/today'),
+        Uri.parse('http://192.168.1.62:8002/word-of-the-day/today'),
         headers: {'accept': 'application/json'},
       );
 
@@ -77,84 +78,104 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> fetchStreak() async {
-    final url = Uri.parse('http://192.168.1.53:8000/activity/get_streaks');
+  Future<void> fetchStreaks() async {
+    print("📡 Fetching streaks...");
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          currentStreak = data['streak'] ?? 0;
-          isLoadingStreak = false;
-        });
-        print('✅ Fetched streak correctly: $currentStreak');
-      } else {
-        setState(() {
-          isLoadingStreak = false;
-        });
-        print('❌ Failed to fetch streaks: ${response.body}');
-      }
-    } catch (e) {
+    if (token == null) {
+      print("⚠️ No token found in SharedPreferences");
       setState(() {
         isLoadingStreak = false;
       });
-      print('❌ Error fetching streak: $e');
+      return;
     }
-  }
 
-  Future<void> fetchPracticeHours() async {
-    final url = Uri.parse('http://192.168.1.53:8000/activity/get_practice_hours');
+    final dio = Dio();
+    final url = 'http://192.168.1.62:8000/activity/get_streaks';
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-
-      final response = await http.get(
+      final response = await dio.get(
         url,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'accept': 'application/json',
-        },
+        options: Options(
+          headers: {
+            "Authorization": "Bearer $token",
+            "Accept": "application/json",
+          },
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final totalSeconds = data['total_time'] ?? 0;
-
-        final hours = totalSeconds ~/ 3600;
-        final minutes = (totalSeconds % 3600) ~/ 60;
-
-        final formattedTime = '${hours}h ${minutes}m';
+        final streaks = response.data["streaks"];
+        print("🔥 Current streaks: $streaks");
 
         setState(() {
-          totalTime = formattedTime;
-          isLoadingTime = false;
+          currentStreak = streaks ?? 0;
+          isLoadingStreak = false;
         });
-        print('✅ Fetched practice hours correctly: $formattedTime');
       } else {
+        print("⚠️ Failed to fetch streaks: ${response.statusCode}");
+        setState(() {
+          isLoadingStreak = false;
+        });
+      }
+    } catch (e) {
+      print("❌ Error while fetching streaks: $e");
+      setState(() {
+        isLoadingStreak = false;
+      });
+    }
+  }
+
+
+  Future<void> fetchPracticeHours() async {
+    print("📡 Fetching total practice hours...");
+    final url = Uri.parse('http://192.168.1.62:8000/activity/get_practice_hours');
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        print('⚠️ No token found in SharedPreferences');
         setState(() {
           totalTime = '0h 0m';
           isLoadingTime = false;
         });
-        print('❌ Failed to fetch practice hours: ${response.body}');
+        return;
+      }
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final total = data['total_time'] ?? '0h 0m';
+
+        print("⏱️ Total time fetched from server: $total");
+
+        setState(() {
+          totalTime = total;
+          isLoadingTime = false;
+        });
+      } else {
+        print('❌ Failed to fetch practice hours: ${response.statusCode}');
+        setState(() {
+          totalTime = '0h 0m';
+          isLoadingTime = false;
+        });
       }
     } catch (e) {
+      print('❌ Error fetching practice hours: $e');
       setState(() {
         totalTime = '0h 0m';
         isLoadingTime = false;
       });
-      print('❌ Error fetching practice hours: $e');
     }
   }
 

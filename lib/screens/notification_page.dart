@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart'; // ⬅ Add this
 import 'home_page.dart';
 import 'ai_chat_page.dart';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -9,36 +13,163 @@ class NotificationPage extends StatefulWidget {
   @override
   State<NotificationPage> createState() => _NotificationPageState();
 }
+class FriendRequest {
+  final int id;
+  final int senderId;
+  final String sentAt;
+  final String status;
+
+  FriendRequest({
+    required this.id,
+    required this.senderId,
+    required this.sentAt,
+    required this.status,
+  });
+
+  factory FriendRequest.fromJson(Map<String, dynamic> json) {
+    return FriendRequest(
+      id: json['id'],
+      senderId: json['sender_id'],
+      sentAt: json['sent_at'],
+      status: json['status'],
+    );
+  }
+}
 
 class _NotificationPageState extends State<NotificationPage> {
   int _selectedIndex = 0;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  List<FriendRequest> _friendRequests = [];
+  bool _isLoadingRequests = true;
+  final Map<int, String> _usernamesCache = {}; // user_id -> username
+
+
 
   final Map<String, String> _requestStatuses = {}; // 'accepted', 'rejected', or null
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
     if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
-      );
+      Navigator.pushReplacementNamed(context, '/home');
+    } else if (index == 1) {
+      Navigator.pushReplacementNamed(context, '/friends');
+    } else if (index == 2) {
+      Navigator.pushReplacementNamed(context, '/chat');
     } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const AIChatPage()),
+      Navigator.pushReplacementNamed(context, '/ai');
+    } else if (index == 4) {
+      Navigator.pushReplacementNamed(context, '/account');
+    }
+
+    print("HomePage: Navigating to index $index");
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFriendRequests();
+  }
+
+
+  Future<void> _fetchFriendRequests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio();
+
+    try {
+      final response = await dio.get(
+        'http://192.168.1.62:8000/friends/get-friend-requests',
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${prefs.getString("token")}',
+          },
+        ),
       );
-    } else {
+
+      if (response.statusCode == 200) {
+        final List data = response.data;
+        setState(() {
+          _friendRequests = data
+              .map((json) => FriendRequest.fromJson(json))
+              .where((f) => f.status == "PENDING")
+              .toList();
+          _isLoadingRequests = false;
+        });
+      } else {
+        throw Exception('Failed to load friend requests');
+      }
+    } catch (e) {
+      print("Error fetching friend requests: $e");
       setState(() {
-        _selectedIndex = index;
+        _isLoadingRequests = false;
       });
     }
   }
+
+
 
   Future<void> _playAcceptSound() async {
     await _audioPlayer.play(AssetSource('accept-sound.mp3'));
   }
 
-  Widget _buildFriendRequest(String username) {
+  Future<void> _handleFriendAction(int senderId, bool isAccept) async {
+    final prefs = await SharedPreferences.getInstance();
+    final dio = Dio();
+
+    final url = isAccept
+        ? 'http://192.168.1.62:8000/friends/accept/$senderId'
+        : 'http://192.168.1.62:8000/friends/reject/$senderId';
+
+    try {
+      final response = await dio.post(
+        url,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${prefs.getString("token")}',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        print('${isAccept ? "Accepted" : "Rejected"} friend request from $senderId');
+      } else {
+        throw Exception("Failed to ${isAccept ? "accept" : "reject"} request");
+      }
+    } catch (e) {
+      print("Error in friend action: $e");
+    }
+  }
+
+  Future<String> _getUsernameFromUserId(int userId) async {
+    if (_usernamesCache.containsKey(userId)) {
+      return _usernamesCache[userId]!;
+    }
+
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('user_id', isEqualTo: userId)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        final username = query.docs.first.data()['username'] as String;
+        _usernamesCache[userId] = username;
+        return username;
+      }
+    } catch (e) {
+      print('❌ Error fetching username for user_id $userId: $e');
+    }
+
+    return 'User #$userId';
+  }
+
+
+  Widget _buildFriendRequest(String username, FriendRequest request) {
     String? status = _requestStatuses[username];
 
     return Container(
@@ -73,7 +204,7 @@ class _NotificationPageState extends State<NotificationPage> {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Colors.black, // Changed from white to black
+                color: Colors.black,
               ),
             ),
           ),
@@ -81,8 +212,10 @@ class _NotificationPageState extends State<NotificationPage> {
             TextButton(
               onPressed: () async {
                 await _playAcceptSound();
+                await _handleFriendAction(request.senderId, true);
                 setState(() {
                   _requestStatuses[username] = 'accepted';
+                  _friendRequests.removeWhere((r) => r.id == request.id);
                 });
               },
               style: TextButton.styleFrom(
@@ -93,9 +226,11 @@ class _NotificationPageState extends State<NotificationPage> {
             ),
             const SizedBox(width: 8),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                await _handleFriendAction(request.senderId, false);
                 setState(() {
                   _requestStatuses[username] = 'rejected';
+                  _friendRequests.removeWhere((r) => r.id == request.id);
                 });
               },
               style: TextButton.styleFrom(
@@ -117,6 +252,7 @@ class _NotificationPageState extends State<NotificationPage> {
       ),
     );
   }
+
 
   @override
   void dispose() {
@@ -163,8 +299,26 @@ class _NotificationPageState extends State<NotificationPage> {
                 ),
               ),
               const SizedBox(height: 30),
-              _buildFriendRequest('Alice Johnson'),
-              _buildFriendRequest('Bob Smith'),
+              _isLoadingRequests
+                  ? const CircularProgressIndicator()
+                  : Column(
+                children: _friendRequests.map((req) {
+                  return FutureBuilder<String>(
+                    future: _getUsernameFromUserId(req.senderId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+
+                      final username = snapshot.data ?? 'User #${req.senderId}';
+                      return _buildFriendRequest(username, req);
+                    },
+                  );
+                }).toList(),
+              ),
             ],
           ),
         ),

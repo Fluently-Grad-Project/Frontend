@@ -74,7 +74,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // For example:
     try {
-      final response = await _dio.get("http://192.168.1.53:8000/users/${user.id}/rating" // Fictional endpoint
+      final response = await _dio.get("http://192.168.1.62:8000/users/${user.id}/rating" // Fictional endpoint
       );
       if (response.statusCode == 200 && response.data != null && response.data['average_rating'] != null) {
         _fetchedUserRating = (response.data['average_rating'] as num).toDouble();
@@ -101,7 +101,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Use 10.0.2.2 for Android Emulator to connect to localhost on your machine
 
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    final String blockUserApiUrl = "http://192.168.1.53:8000/users/block-user/$userIdToBlock";
+    final String blockUserApiUrl = "http://192.168.1.62:8000/users/block-user/$userIdToBlock";
     print("Attempting to block user $userIdToBlock at $blockUserApiUrl");
 
     if (!mounted) return;
@@ -263,7 +263,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // report user API call
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    const String reportApiUrl = "http://10.0.2.2:8000/reports/";
+    const String reportApiUrl = "http://192.168.1.62:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -323,7 +323,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _isSubmittingRating = true;
     });
 
-    final String rateUserApiUrl = "http://192.168.1.53:8000/users/rate-user/${user.id}";
+    final String rateUserApiUrl = "http://192.168.1.62:8000/users/rate-user/${user.id}";
     print("Submitting rating $ratingToSubmit for user ${user.id} to $rateUserApiUrl");
 
     try {
@@ -461,7 +461,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               radius: 35,
                               backgroundColor: Colors.white,
                               backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                                  ? NetworkImage("http://10.0.2.2:8000/uploads/profile_pics/${user.profile_image!}")
+                                  ? NetworkImage("http://192.168.1.62:8000/uploads/profile_pics/${user.profile_image!}")
                                   : null,
                               child: (user.profile_image == null || user.profile_image!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)

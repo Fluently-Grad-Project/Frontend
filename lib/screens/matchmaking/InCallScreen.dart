@@ -2,8 +2,6 @@ import 'dart:async';
 import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
-
 import 'after_call_page.dart';  // Make sure you have flutter_webrtc imported
 
 class InCallScreen extends StatefulWidget {
@@ -38,7 +36,6 @@ class _InCallScreenState extends State<InCallScreen> {
   }
 
   Future<void> listenToCallEnd() async {
-    // find the active call where self is either caller or callee
     final query = await _firestore
         .collection('calls')
         .where('callEnded', isEqualTo: false)
@@ -48,26 +45,31 @@ class _InCallScreenState extends State<InCallScreen> {
       final data = doc.data();
       if (data['callerId'] == widget.selfId || data['calleeId'] == widget.selfId) {
         _callDocId = doc.id;
+
+        // ✅ Store _otherUserId immediately
+        _otherUserId = data['callerId'] == widget.selfId
+            ? data['calleeId']
+            : data['callerId'];
+
+        _fetchOtherUserName(); // ✅ Fetch username early
+
         _callSub = _firestore
             .collection('calls')
             .doc(_callDocId)
             .snapshots()
             .listen((snapshot) async {
           final callData = snapshot.data();
+
           if (callData != null && callData['callEnded'] == true) {
             print("📴 Remote user ended call");
 
+            if (_otherUserId == null) {
+              print("⚠️ _otherUserId is still null");
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              return;
+            }
 
-            final otherUserUid = callData['callerId'] == widget.selfId
-                ? callData['calleeId']
-                : callData['callerId'];
-
-            _otherUserId = otherUserUid; // 👈 store Firebase UID
-            _fetchOtherUserName();       // 👈 call method to fetch username from Firestore
-
-
-            final otherUserId = await getBackendUserIdFromFirebaseUid(otherUserUid);
-
+            final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
             await widget.hangUp();
 
             if (mounted && otherUserId != null) {
@@ -202,19 +204,18 @@ class _InCallScreenState extends State<InCallScreen> {
             // End call button below the big icon
             GestureDetector(
               onTap: () async {
+                if (_callDocId != null) {
+                  await _firestore.collection('calls').doc(_callDocId).update({
+                    'callEnded': true,
+                    'callEndedBy': widget.selfId,
+                  });
+                }
+
+                await Future.delayed(const Duration(milliseconds: 300));
                 await widget.hangUp();
 
-                // Get the call document again
-                final doc = await _firestore.collection('calls').doc(_callDocId).get();
-                final data = doc.data();
-
-                if (data != null) {
-                  final otherUserUid = data['callerId'] == widget.selfId
-                      ? data['calleeId']
-                      : data['callerId'];
-
-                  final otherUserId = await getBackendUserIdFromFirebaseUid(otherUserUid);
-
+                if (_otherUserId != null) {
+                  final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
                   if (mounted && otherUserId != null) {
                     Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
@@ -224,6 +225,9 @@ class _InCallScreenState extends State<InCallScreen> {
                   } else {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
+                } else {
+                  print("⚠️ _otherUserId is null, cannot navigate.");
+                  Navigator.of(context).popUntil((route) => route.isFirst);
                 }
               },
               child: Center(

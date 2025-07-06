@@ -53,6 +53,8 @@ class _AfterCallPageState extends State<AfterCallPage> {
   bool _isSendingFriendRequest = false;
   bool _friendRequestSent = false;
   String? _friendRequestError;
+  int _selectedIndex = 2;
+
 
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
@@ -97,7 +99,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       _user = null;
     });
 
-    final String apiUrl = "http://192.168.1.53:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.62:8000/users/${widget.userId}/profile";
     print("AfterCallPage: Fetching user profile from: $apiUrl for userId: ${widget.userId}");
 
     try {
@@ -181,7 +183,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     }
   }
 
-  // --- Add Friend Function (Copied and adapted, ensure User model has `id` and `name`) ---
+  // --- Add Friend Function (Copied and adapted, ensure User model has id and name) ---
   Future<void> _sendFriendRequest(BuildContext context, String recipientUserId, String recipientName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
@@ -192,7 +194,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
     final dio = Dio();
-    final String friendRequestApiUrl = "http://192.168.1.53:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
+    final String friendRequestApiUrl = "http://192.168.1.62:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
 
     try {
       final response = await dio.post(
@@ -312,7 +314,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final dio = Dio();
-    const String reportApiUrl = "http://192.168.1.53:8000/reports/";
+    const String reportApiUrl = "http://192.168.1.62:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -386,7 +388,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
 
-    final String rateUserApiUrl = "http://192.168.1.53:8000/users/rate-user/${_user!.id}";
+    final String rateUserApiUrl = "http://192.168.1.62:8000/users/rate-user/${_user!.id}";
 
     print("Submitting rating $ratingToSubmit for user ${_user!.id} to $rateUserApiUrl");
 
@@ -606,7 +608,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
                               backgroundColor: Colors.white,
                               // Use userToDisplay.profileImage (or appropriate field from your User model)
                               backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
-                                  ? NetworkImage("http://192.168.1.53:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
+                                  ? NetworkImage("http://192.168.1.62:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
                                   : null,
                               child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)
@@ -772,6 +774,23 @@ class _AfterCallPageState extends State<AfterCallPage> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'Friends'),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'Chat'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), activeIcon: Icon(Icons.smart_toy), label: 'AI'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), activeIcon: Icon(Icons.account_circle), label: 'Account'),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color(0xFFA58DCA), // Theme color
+        unselectedItemColor: Colors.grey[600],
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
+        elevation: 5,
       ),
     );
   }

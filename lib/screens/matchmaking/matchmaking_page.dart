@@ -125,7 +125,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     });
 
     // 1. Fetch initial list of matched user IDs and similarity scores
-    String matchmakingUrl = "http://192.168.1.53:8000/matchmaking/get-matched-users?n_recommendations=5";
+    String matchmakingUrl = "http://192.168.1.62:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
     try {
@@ -201,7 +201,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   // Helper method to fetch individual user profile
   // Takes initialData from the matchmaking endpoint to preserve similarity_score and other direct fields.
   Future<User?> _fetchUserProfile(int userId, String? token, {required Map<String, dynamic> initialData}) async {
-    String profileUrl = "http://192.168.1.53:8000/users/$userId/profile";
+    String profileUrl = "http://192.168.1.62:8000/users/$userId/profile";
     try {
       print("MatchmakingPage: Fetching profile for user ID $userId from $profileUrl");
       Response profileRes = await _dio.get(

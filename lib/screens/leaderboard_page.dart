@@ -32,8 +32,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       Navigator.pushReplacementNamed(context, '/account');
     }
 
-    print("HomePage: Navigating to index $index");
-
     setState(() {
       _selectedIndex = index;
     });
@@ -47,7 +45,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.1.53:8000/leaderboard/all'));
+      final response = await http.get(Uri.parse('http://192.168.1.62:8000/leaderboard/all'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
@@ -55,7 +53,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             'name': '${item['first_name']} ${item['last_name']}',
             'profile_image': item['profile_image'],
             'streaks': item['streaks'],
-            'hours': item['hours'],
+            'minutes': item['minutes'],
             'score': item['score'],
           }).toList();
           isLoading = false;
@@ -101,6 +99,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
               itemCount: leaders.length,
               itemBuilder: (context, index) {
                 final leader = leaders[index];
+                final int totalMinutes = leader['minutes'] ?? 0;
+                final int hours = totalMinutes ~/ 60;
+                final int minutes = totalMinutes % 60;
+                final String timeString = '${hours}h ${minutes}m';
+
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                   padding: const EdgeInsets.all(12.0),
@@ -147,7 +150,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                           height: 47,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            // Fallback if image URL is invalid or fails to load
                             return Image.asset('assets/user-figma-icon.png', width: 47, height: 47);
                           },
                         ),
@@ -167,10 +169,18 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                               ),
                             ),
                             Text(
-                              '${leader['hours']} hrs',
+                              timeString,
                               style: const TextStyle(
                                 color: Colors.black87,
                                 fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '🔥 ${leader['streaks']} streaks | 🧠 ${leader['score']} pts',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 13,
                               ),
                             ),
                           ],
@@ -190,7 +200,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), label: 'AI'), // Changed icon
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), label: 'AI'),
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
