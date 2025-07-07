@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +27,8 @@ class _InCallScreenState extends State<InCallScreen> {
   String? _callDocId;
   String? _otherUserId;
   String _otherUserName = 'Voice Chat';
+  DateTime? _callStartTime;
+
 
   static const double headerHeight = 60.0;
 
@@ -32,8 +37,44 @@ class _InCallScreenState extends State<InCallScreen> {
   @override
   void initState() {
     super.initState();
+    _callStartTime = DateTime.now();
     listenToCallEnd();
   }
+
+  Future<void> updateCallDurationToBackend() async {
+    if (_callStartTime == null) return;
+
+    final callEndTime = DateTime.now();
+    final duration = callEndTime.difference(_callStartTime!);
+    final int minutes = duration.inMinutes;
+
+    print("⏱️ Call lasted $minutes minute(s). Sending to backend...");
+
+    final dio = Dio();
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    try {
+      final response = await dio.patch(
+        'http://192.168.1.62:8000/activity/update_hours',
+        data: {
+          'hours_to_add': 0,
+          'minutes': minutes,
+        },
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      print("✅ Call duration sent to backend: ${response.data}");
+    } catch (e) {
+      print("❌ Failed to update activity hours: $e");
+    }
+  }
+
+
 
   Future<void> listenToCallEnd() async {
     final query = await _firestore
@@ -65,12 +106,15 @@ class _InCallScreenState extends State<InCallScreen> {
 
             if (_otherUserId == null) {
               print("⚠️ _otherUserId is still null");
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              if (mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
               return;
             }
 
             final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
             await widget.hangUp();
+            await updateCallDurationToBackend();
 
             if (mounted && otherUserId != null) {
               Navigator.of(context).pushReplacement(
@@ -78,7 +122,7 @@ class _InCallScreenState extends State<InCallScreen> {
                   builder: (_) => AfterCallPage(userId: otherUserId),
                 ),
               );
-            } else {
+            } else if (mounted) {
               Navigator.of(context).popUntil((route) => route.isFirst);
             }
           }
@@ -213,6 +257,7 @@ class _InCallScreenState extends State<InCallScreen> {
 
                 await Future.delayed(const Duration(milliseconds: 300));
                 await widget.hangUp();
+                await updateCallDurationToBackend();
 
                 if (_otherUserId != null) {
                   final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);

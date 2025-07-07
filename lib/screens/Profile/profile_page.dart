@@ -460,7 +460,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
                             radius: 35,
                             backgroundColor: Colors.white,
                             backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                                ? NetworkImage("http://192.168.1.62:8000/uploads/profile_pics/${user.profile_image!}")
+                                ? NetworkImage("http://172.27.0.1:8000/uploads/profile_pics/${user.profile_image!}")
                                 : null,
                             child: (user.profile_image == null || user.profile_image!.isEmpty)
                                 ? Icon(Icons.person, color: headerColor, size: 40)
