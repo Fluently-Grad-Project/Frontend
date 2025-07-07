@@ -15,7 +15,16 @@ import 'matchmade_profile_page.dart'; // Keep if used
 
 
 import 'package:besso_fluently/screens/matchmaking/matchmade_profile_voicecall.dart';
-
+import 'dart:async';
+import 'package:besso_fluently/screens/matchmaking/InCallScreen.dart';
+import 'package:besso_fluently/screens/matchmaking/user_chat_request_page.dart';
+import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide User;
+import 'package:permission_handler/permission_handler.dart';
 class MatchmakingPage extends StatefulWidget {
   const MatchmakingPage({super.key});
 
@@ -77,38 +86,449 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   final double _minPossibleAge = 18;
   final double _maxPossibleAge = 70;
 
+  // Profile Data
+  int? _fetchedUserId;
+  String? _firstName;
+  String? _lastName;
+  String? _gender;
+  double? _rating;
+  int? _age;
+  String? _profileImageUrl;
+  List<String>? _interests;
+  String? _email;
+  String? _error;
+
+  // WebRTC and Firebase call related
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
+  RTCPeerConnection? _peerConnection;
+  MediaStream? _localStream;
+  StreamSubscription? _iceSub;
+  StreamSubscription<DocumentSnapshot>? _callStateSub;
+
+  late String _selfId;
+  String _calleeId = '';
+  String? _callDocId;
+
+  String get _displayName {
+    if (_firstName != null && _lastName != null && _firstName!.isNotEmpty && _lastName!.isNotEmpty) {
+      return "$_firstName $_lastName";
+    } else if (_firstName != null && _firstName!.isNotEmpty) {
+      return _firstName!;
+    } else if (_lastName != null && _lastName!.isNotEmpty) {
+      return _lastName!;
+    }
+    return "User";
+  }
+
   @override
   void initState() {
     super.initState();
+    // _fetchUserData();
+    _initRenderers();
     _selectedAgeRange = RangeValues(_minPossibleAge, _maxPossibleAge);
-
     _loadData();
-
   }
-
 
   @override
   void dispose() {
+    _localRenderer.dispose();
+    _remoteRenderer.dispose();
+    _peerConnection?.dispose();
+    _localStream?.dispose();
+    _iceSub?.cancel();
+    _callStateSub?.cancel();
     super.dispose();
   }
 
+  // Future<void> _fetchUserData() async {
+  //   setState(() {
+  //     _isLoading = true;
+  //     _error = null;
+  //   });
+  //
+  //   final String apiUrl = "http://192.168.1.14:8000/users/${user.id}/profile";
+  //
+  //   try {
+  //     final response = await _dio.get(apiUrl);
+  //     if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+  //       final data = response.data as Map<String, dynamic>;
+  //       final birthDate = DateTime.tryParse(data['birth_date'] ?? '');
+  //       int? calculatedAge;
+  //       if (birthDate != null) {
+  //         final today = DateTime.now();
+  //         calculatedAge = today.year - birthDate.year;
+  //         if (today.month < birthDate.month || (today.month == birthDate.month && today.day < birthDate.day)) {
+  //           calculatedAge--;
+  //         }
+  //         if (calculatedAge < 0) calculatedAge = null;
+  //       }
+  //
+  //       setState(() {
+  //         _fetchedUserId = data['id'];
+  //         _firstName = data['first_name'];
+  //         _lastName = data['last_name'];
+  //         _gender = data['gender'];
+  //         _rating = (data['rating'] as num?)?.toDouble();
+  //         _profileImageUrl = data['profile_image'];
+  //         _interests = (data['interests'] as List?)?.cast<String>();
+  //         _email = data['email'];
+  //         _age = calculatedAge;
+  //         _isLoading = false;
+  //       });
+  //     } else {
+  //       throw Exception("Invalid response from server.");
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       _error = "Failed to fetch profile: $e";
+  //       _isLoading = false;
+  //     });
+  //   }
+  // }
 
   Future<String?> getFirebaseUidByEmail(String email) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final snapshot = await _firestore
           .collection('users')
           .where('email', isEqualTo: email)
           .limit(1)
           .get();
-
       if (snapshot.docs.isNotEmpty) {
-        return snapshot.docs.first.id; // Firestore document ID is the Firebase UID
+        return snapshot.docs.first.id;
       }
     } catch (e) {
-      print("Error fetching Firebase UID by email: $e");
+      print("Error fetching Firebase UID: $e");
     }
     return null;
   }
+
+  Future<void> _initRenderers() async {
+    _selfId = _auth.currentUser!.uid;
+    await _localRenderer.initialize();
+    await _remoteRenderer.initialize();
+    await _initLocalStream();
+    await _cleanPreviousCallsBetween(_selfId, _selfId);
+    setupCallListener();
+  }
+
+  Future<void> _initLocalStream() async {
+    final micStatus = await Permission.microphone.request();
+    if (micStatus != PermissionStatus.granted) return;
+
+    final stream = await navigator.mediaDevices.getUserMedia({'audio': true, 'video': false});
+    _localStream = stream;
+    _localRenderer.srcObject = _localStream;
+    await Helper.setSpeakerphoneOn(true);
+  }
+
+  Future<void> _cleanPreviousCallsBetween(String userA, String userB) async {
+    final calls = await _firestore.collection('calls').get();
+    for (var doc in calls.docs) {
+      final data = doc.data();
+      final isBetween = (data['callerId'] == userA && data['calleeId'] == userB) ||
+          (data['callerId'] == userB && data['calleeId'] == userA);
+      if (isBetween) {
+        await doc.reference.update({'callEnded': true});
+        await doc.reference.collection('callerCandidates').get().then((snap) async {
+          for (var cand in snap.docs) await cand.reference.delete();
+        });
+        await doc.reference.collection('calleeCandidates').get().then((snap) async {
+          for (var cand in snap.docs) await cand.reference.delete();
+        });
+        await doc.reference.delete();
+      }
+    }
+  }
+
+  Future<void> setupCallListener() async {
+    _firestore.collection('calls').orderBy('timestamp', descending: true).snapshots().listen((snapshot) async {
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        if (data['calleeId'] == _selfId && data['type'] == 'offer') {
+          final callerId = data['callerId'];
+          String callerName = "Unknown";
+          try {
+            final userDoc = await _firestore.collection('users').doc(callerId).get();
+            if (userDoc.exists) callerName = userDoc.data()?['username'] ?? "Unknown";
+          } catch (_) {}
+          if (!mounted) return;
+          final result = await Navigator.push(context, MaterialPageRoute(
+            builder: (_) => UserChatRequestPage(
+              callerId: callerId,
+              callerName: callerName,
+              firebaseUid: _selfId,
+              offerData: {...data, 'docId': doc.id},
+            ),
+          ));
+          if (result == true) await _answerCall({...data, 'docId': doc.id});
+        }
+      }
+    });
+  }
+
+  Future<void> _resetMediaState() async {
+    if (_peerConnection != null) {
+      _peerConnection!.onTrack = null;
+      _peerConnection!.onIceCandidate = null;
+      await _peerConnection!.close();
+      await _peerConnection!.dispose();
+      _peerConnection = null;
+    }
+
+    if (_localStream != null) {
+      for (var track in _localStream!.getTracks()) {
+        track.stop();
+      }
+      await _localStream!.dispose();
+      _localStream = null;
+    }
+
+    // ✅ Ensure both renderers are fully detached
+    _localRenderer.srcObject = null;
+    if (_remoteRenderer.srcObject != null) {
+      for (var track in _remoteRenderer.srcObject!.getTracks()) {
+        track.stop();
+      }
+    }
+    _remoteRenderer.srcObject = null;
+
+    await _iceSub?.cancel();
+    _iceSub = null;
+  }
+
+  Future<void> _startCall() async {
+    if (_calleeId.trim().isEmpty) {
+      print("⚠️ Callee ID is empty");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please enter the Callee UID")),
+      );
+      return;
+    }
+
+    try {
+      print("📞 Starting call to $_calleeId");
+
+      await _cleanPreviousCallsBetween(_selfId, _calleeId.trim());
+      print("🧹 Cleaned previous calls");
+
+      // Optional: reset media state if you have such a method, otherwise initialize local stream
+      if (mounted) {
+        await _resetMediaState();  // if you have this method, else remove
+        print("🔁 Reset media state");
+      }
+
+      await _remoteRenderer.initialize();
+      await _initLocalStream();
+      print("🎤 Local stream initialized");
+
+      _peerConnection = await _createPeerConnection(isCaller: true);
+      print("🔗 Peer connection created");
+
+      // Add audio tracks to peer connection
+      for (var track in _localStream!.getAudioTracks()) {
+        _peerConnection!.addTrack(track, _localStream!);
+      }
+
+      final offer = await _peerConnection!.createOffer();
+      await _peerConnection!.setLocalDescription(offer);
+      print("📤 Offer created and set");
+
+      final callDoc = await _firestore.collection('calls').add({
+        'callerId': _selfId,
+        'calleeId': _calleeId.trim(),
+        'type': 'offer',
+        'sdp': offer.sdp,
+        'sdpType': offer.type,
+        'timestamp': FieldValue.serverTimestamp(),
+        'callEnded': false,  // <-- important!
+      });
+
+      _callDocId = callDoc.id;
+      print("📁 Firestore call doc created: $_callDocId");
+
+      _listenForRemoteIceCandidates(isCaller: true);
+
+      // Here: Navigate immediately to UserMakingCallPage
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => UserMakingCallPage(
+              callDocId: _callDocId!,
+              selfId: _selfId,
+              hangUp: _hangUp,
+              onCallAnswered: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId),
+                  ),
+                );
+              },
+              userName: _displayName,
+            ),
+          ),
+        );
+      }
+
+      await _callStateSub?.cancel(); // Cancel any previous listener
+      _callStateSub = _firestore.collection('calls').doc(_callDocId!).snapshots().listen((docSnapshot) async {
+        final data = docSnapshot.data();
+        if (data == null) return;
+
+        if (data['callEnded'] == true) {
+          print("📴 Call ended");
+          await _hangUp();
+          if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+          return;
+        }
+
+        if (data['type'] == 'answer') {
+          print("✅ Answer received");
+          final answer = RTCSessionDescription(data['sdp'], data['sdpType']);
+          await _peerConnection?.setRemoteDescription(answer);
+          if (mounted) {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId),
+            ));
+          }
+        }
+      });
+    } catch (e, st) {
+      print('❌ Error in _startCall: $e');
+      print(st);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to start call: $e")),
+      );
+    }
+  }
+
+  Future<void> _answerCall(Map<String, dynamic> offerData) async {
+    _callDocId = offerData['docId'];
+    await _initLocalStream();
+    _peerConnection = await _createPeerConnection(isCaller: false);
+    _localStream?.getAudioTracks().forEach((track) {
+      _peerConnection?.addTrack(track, _localStream!);
+    });
+    final offer = RTCSessionDescription(offerData['sdp'], offerData['sdpType']);
+    await _peerConnection!.setRemoteDescription(offer);
+    final answer = await _peerConnection!.createAnswer();
+    await _peerConnection!.setLocalDescription(answer);
+    await _firestore.collection('calls').doc(_callDocId).update({
+      'type': 'answer',
+      'sdp': answer.sdp,
+      'sdpType': answer.type,
+    });
+    _listenForRemoteIceCandidates(isCaller: false);
+    if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => InCallScreen(hangUp: _hangUp, selfId: _selfId)));
+  }
+
+  Future<RTCPeerConnection> _createPeerConnection({required bool isCaller}) async {
+    final config = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]};
+    final pc = await createPeerConnection(config);
+    pc.onTrack = (event) {
+      if (event.streams.isNotEmpty) _remoteRenderer.srcObject = event.streams.first;
+    };
+    pc.onIceCandidate = (candidate) async {
+      if (_callDocId != null) {
+        final ref = _firestore
+            .collection('calls')
+            .doc(_callDocId)
+            .collection(isCaller ? 'callerCandidates' : 'calleeCandidates');
+        await ref.add(candidate.toMap());
+      }
+    };
+    return pc;
+  }
+
+  Future<void> _listenForRemoteIceCandidates({required bool isCaller}) async {
+    final ref = _firestore
+        .collection('calls')
+        .doc(_callDocId)
+        .collection(isCaller ? 'calleeCandidates' : 'callerCandidates');
+    _iceSub = ref.snapshots().listen((snapshot) {
+      for (var doc in snapshot.docChanges) {
+        if (doc.type == DocumentChangeType.added) {
+          final data = doc.doc.data();
+          if (data != null) {
+            final cand = RTCIceCandidate(data['candidate'], data['sdpMid'], data['sdpMLineIndex']);
+            _peerConnection?.addCandidate(cand);
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> _hangUp() async {
+    await _peerConnection?.close();
+    await _peerConnection?.dispose();
+    _peerConnection = null;
+
+    if (_localStream != null) {
+      for (var track in _localStream!.getTracks()) {
+        track.stop();
+      }
+      await _localStream?.dispose();
+      _localStream = null;
+    }
+
+    if (_remoteRenderer.srcObject != null) {
+      for (var track in _remoteRenderer.srcObject!.getTracks()) {
+        track.stop();
+      }
+      _remoteRenderer.srcObject = null;
+    }
+
+    await _iceSub?.cancel();
+    _iceSub = null;
+
+    await _callStateSub?.cancel();
+    _callStateSub = null;
+
+    if (_callDocId != null) {
+      final docRef = _firestore.collection('calls').doc(_callDocId);
+      final docSnap = await docRef.get();
+      if (docSnap.exists && docSnap.data()?['callEnded'] != true) {
+        await docRef.update({'callEnded': true});
+      }
+
+      for (final ref in [
+        docRef.collection('callerCandidates'),
+        docRef.collection('calleeCandidates')
+      ]) {
+        final snapshot = await ref.get();
+        for (final doc in snapshot.docs) {
+          await doc.reference.delete();
+        }
+      }
+
+      _callDocId = null;
+    }
+
+    _calleeId = '';         // ✅ Add this line
+    _callDocId = null;      // ✅ Reset call ID
+    setState(() {});
+  }
+
+
+
+  // Future<String?> getFirebaseUidByEmail(String email) async {
+  //   try {
+  //     final snapshot = await FirebaseFirestore.instance
+  //         .collection('users')
+  //         .where('email', isEqualTo: email)
+  //         .limit(1)
+  //         .get();
+  //
+  //     if (snapshot.docs.isNotEmpty) {
+  //       return snapshot.docs.first.id; // Firestore document ID is the Firebase UID
+  //     }
+  //   } catch (e) {
+  //     print("Error fetching Firebase UID by email: $e");
+  //   }
+  //   return null;
+  // }
 
   Future<void> _loadData() async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
@@ -125,7 +545,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     });
 
     // 1. Fetch initial list of matched user IDs and similarity scores
-    String matchmakingUrl = "http://192.168.1.62:8000/matchmaking/get-matched-users?n_recommendations=5";
+    String matchmakingUrl = "http://192.168.1.14:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
     try {
@@ -201,7 +621,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   // Helper method to fetch individual user profile
   // Takes initialData from the matchmaking endpoint to preserve similarity_score and other direct fields.
   Future<User?> _fetchUserProfile(int userId, String? token, {required Map<String, dynamic> initialData}) async {
-    String profileUrl = "http://192.168.1.62:8000/users/$userId/profile";
+    String profileUrl = "http://192.168.1.14:8000/users/$userId/profile";
     try {
       print("MatchmakingPage: Fetching profile for user ID $userId from $profileUrl");
       Response profileRes = await _dio.get(
@@ -565,6 +985,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
             ),
           );
         },
+
         borderRadius: BorderRadius.circular(12), // Match card's border radius for ink splash
         child: Padding(
           padding: const EdgeInsets.all(16.0), // Increased padding
@@ -651,34 +1072,29 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
                     radius: 22, // Adjusted radius
                     backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                     child: IconButton(
-                        icon: Icon(Icons.call, color: Theme.of(context).primaryColor, size: 24), // Adjusted size
-                        tooltip: "Call ${user.name}",
-                        splashRadius: 22,
+                      icon: Icon(Icons.call),
                         onPressed: () async {
-                          print("MatchmakingPage: Call icon tapped for user: ${user.name}, email: ${user.email}");
+                          print("📞 Call icon pressed");
 
-                          if (user.email == null) {
-                            print("Error: User email is null. Cannot fetch Firebase UID.");
+                          _email = user.email; // ✅ Assign email here before anything else
+
+                          if (_email == null) {
+                            print("❌ _email is null");
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Cannot start call. User email is missing.")),
+                              const SnackBar(content: Text("Email is not available.")),
                             );
                             return;
                           }
 
-                          String? firebaseUid = await getFirebaseUidByEmail(user.email!);
+                          final firebaseUid = await getFirebaseUidByEmail(_email!);
+                          print("📥 Firebase UID: $firebaseUid");
 
                           if (firebaseUid != null) {
-                            print("Firebase UID Lookup: Email '${user.email}' corresponds to UID '$firebaseUid'");
-
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => VoiceCallScreen(),
-                              ),
-                            );
+                            _calleeId = firebaseUid;
+                            await _startCall();
                           } else {
-                            print("Error: Could not find Firebase UID for ${user.email}");
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text("Unable to start call. User not found in Firebase.")),
+                              const SnackBar(content: Text("Failed to get user UID from Firebase.")),
                             );
                           }
                         }

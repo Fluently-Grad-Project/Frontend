@@ -398,6 +398,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_audio_capture:
+    dependency: "direct main"
+    description:
+      name: flutter_audio_capture
+      sha256: "873fc96bd2e0033d0f14a41a79f7ed44ee52a32b319eab01a4192d8bb272431a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.11"
   flutter_dotenv:
     dependency: "direct main"
     description:

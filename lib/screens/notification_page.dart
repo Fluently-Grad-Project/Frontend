@@ -82,7 +82,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     try {
       final response = await dio.get(
-        'http://192.168.1.62:8000/friends/get-friend-requests',
+        'http://192.168.1.14:8000/friends/get-friend-requests',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${prefs.getString("token")}',
@@ -121,8 +121,8 @@ class _NotificationPageState extends State<NotificationPage> {
     final dio = Dio();
 
     final url = isAccept
-        ? 'http://192.168.1.62:8000/friends/accept/$senderId'
-        : 'http://192.168.1.62:8000/friends/reject/$senderId';
+        ? 'http://192.168.1.14:8000/friends/accept/$senderId'
+        : 'http://192.168.1.14:8000/friends/reject/$senderId';
 
     try {
       final response = await dio.post(
@@ -271,11 +271,11 @@ class _NotificationPageState extends State<NotificationPage> {
           ),
           child: Column(
             children: [
-              Container(height: 50, color: Colors.white),
+              Container(height: 35, color: Colors.white),
               Container(
                 height: 45,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF9F86C0),
                   borderRadius: BorderRadius.circular(16),
@@ -287,15 +287,24 @@ class _NotificationPageState extends State<NotificationPage> {
                     ),
                   ],
                 ),
-                child: const Center(
-                  child: Text(
-                    'Notifications',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Notifications',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 30),
@@ -324,18 +333,21 @@ class _NotificationPageState extends State<NotificationPage> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Friends'),
           BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.android), label: 'AI'),
+          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), label: 'AI'), // Changed icon
           BottomNavigationBarItem(icon: Icon(Icons.account_circle), label: 'Account'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Color(0xFF9F86C0),
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: const Color.fromARGB(255, 159, 134, 192),
+        unselectedItemColor: Colors.grey[600],
         onTap: _onItemTapped,
         type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
+        elevation: 5,
       ),
     );
   }

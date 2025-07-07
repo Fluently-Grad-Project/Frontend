@@ -45,7 +45,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> fetchLeaderboard() async {
     try {
-      final response = await http.get(Uri.parse('http://192.168.1.62:8000/leaderboard/all'));
+      final response = await http.get(Uri.parse('http://192.168.1.14:8000/leaderboard/all'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
@@ -76,7 +76,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         elevation: 1,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          color: Color(0xFF9F86C0),
+          color: Colors.black,
           onPressed: () {
             Navigator.of(context).pop();
           },
@@ -84,7 +84,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         title: const Text(
           'Leaderboard',
           style: TextStyle(
-            color: Color(0xFF9F86C0),
+            color: Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -177,7 +177,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '🔥 ${leader['streaks']} streaks | 🧠 ${leader['score']} pts',
+                              '${leader['streaks']} streaks | ${leader['score']} pts',
                               style: const TextStyle(
                                 color: Colors.black54,
                                 fontSize: 13,
