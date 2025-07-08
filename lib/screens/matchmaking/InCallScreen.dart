@@ -56,7 +56,7 @@ class _InCallScreenState extends State<InCallScreen> {
 
     try {
       final response = await dio.patch(
-        'http://192.168.1.62:8000/activity/update_hours',
+        'http://192.168.1.14:8000/activity/update_hours',
         data: {
           'hours_to_add': 0,
           'minutes': minutes,
@@ -73,8 +73,6 @@ class _InCallScreenState extends State<InCallScreen> {
       print("❌ Failed to update activity hours: $e");
     }
   }
-
-
 
   Future<void> listenToCallEnd() async {
     final query = await _firestore
@@ -112,19 +110,33 @@ class _InCallScreenState extends State<InCallScreen> {
               return;
             }
 
-            final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
+            if (_otherUserId != null) {
+              final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
+
+              if (otherUserId != null) {
+                if (mounted) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (_) => AfterCallPage(userId: otherUserId),
+                      ),
+                    );
+                  });
+                }
+              } else {
+                print("⚠️ otherUserId is null");
+                if (mounted) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    Navigator.of(context).pushReplacementNamed('/friends');
+                  });
+                }
+              }
+            }
+
+            // cleanup AFTER navigation
             await widget.hangUp();
             await updateCallDurationToBackend();
 
-            if (mounted && otherUserId != null) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => AfterCallPage(userId: otherUserId),
-                ),
-              );
-            } else if (mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            }
           }
         });
         break;
@@ -255,25 +267,47 @@ class _InCallScreenState extends State<InCallScreen> {
                   });
                 }
 
-                await Future.delayed(const Duration(milliseconds: 300));
-                await widget.hangUp();
-                await updateCallDurationToBackend();
-
-                if (_otherUserId != null) {
-                  final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
-                  if (mounted && otherUserId != null) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => AfterCallPage(userId: otherUserId),
-                      ),
-                    );
-                  } else {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
-                } else {
-                  print("⚠️ _otherUserId is null, cannot navigate.");
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
+                // await Future.delayed(const Duration(milliseconds: 300));
+                //
+                // if (_otherUserId != null) {
+                //   final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
+                //   print(" getbackenduserid return function _otherUserId");
+                //   print(otherUserId);
+                //   print("this is mounted");
+                //   print(mounted);
+                //
+                //   if (!mounted) {
+                //     print("❌ Widget is no longer mounted. Skipping navigation.");
+                //     return;
+                //   }
+                //
+                //   if (otherUserId != null) {
+                //     // ✅ Defer navigation safely to the next frame
+                //     WidgetsBinding.instance.addPostFrameCallback((_) {
+                //       Navigator.of(context).pushReplacement(
+                //         MaterialPageRoute(
+                //           builder: (_) => AfterCallPage(userId: otherUserId),
+                //         ),
+                //       );
+                //     });
+                //   } else {
+                //     print("⚠️ otherUserId is null");
+                //     WidgetsBinding.instance.addPostFrameCallback((_) {
+                //       Navigator.of(context).pushReplacementNamed('/friends');
+                //     });
+                //   }
+                // } else {
+                //   print("⚠️ _otherUserId is null, cannot navigate.");
+                //   if (mounted) {
+                //     WidgetsBinding.instance.addPostFrameCallback((_) {
+                //       Navigator.of(context).popUntil((route) => route.isFirst);
+                //     });
+                //   }
+                // }
+                //
+                // // ✅ Cleanup AFTER navigation has started
+                // await widget.hangUp();
+                // await updateCallDurationToBackend();
               },
               child: Center(
                 child: Image.asset(
