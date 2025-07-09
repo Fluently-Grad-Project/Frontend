@@ -4,7 +4,7 @@ import 'ai_call_page.dart';
 import 'home_page.dart';
 import 'chatbot_test.dart';
 
-const String geminiApiKey = 'AIzaSyB3aZtJbUB6u_qinP7FqInZRVKQI16QmhE';
+const String geminiApiKey = 'AIzaSyCijmN_a7Zwa-QEXhg257RnedpL9fk2kwM';
 
 class AIChatPage extends StatefulWidget {
   const AIChatPage({Key? key}) : super(key: key);

@@ -269,7 +269,7 @@ class _ChatPageState extends State<ChatPage> {
 
 
     try {
-      final targetUrl = 'http://192.168.1.62:8000/chat/history?receiver_id=${widget.chatUser.id}';
+      final targetUrl = 'http://192.168.1.14:8000/chat/history?receiver_id=${widget.chatUser.id}';
       print("DEBUG: _fetchChatHistory: Sending API request to: $targetUrl");
       print("DEBUG: _fetchChatHistory: Authorization Header: 'Bearer $token'");
 
@@ -394,7 +394,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    final String apiUrl = "http://192.168.100.241:8000/chat/mark-as-read/$senderId";
+    final String apiUrl = "http://192.168.1.14:8000/chat/mark-as-read/$senderId";
     print("ChatPage: Marking messages from sender $senderId as read. URL: $apiUrl");
 
     try {
@@ -481,7 +481,7 @@ class _ChatPageState extends State<ChatPage> {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
     refreshToken();
-    final wsUrl = Uri.parse('ws://192.168.100.241:8000/ws/chat?token=${prefs.getString("token")}');
+    final wsUrl = Uri.parse('ws://192.168.1.14:8000/ws/chat?token=${prefs.getString("token")}');
     print("ChatPage: Attempting to connect to WebSocket: $wsUrl");
     setState(() {
       _connectionStatusMessage = "Connecting...";
@@ -1091,6 +1091,5 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 }
-
 
 

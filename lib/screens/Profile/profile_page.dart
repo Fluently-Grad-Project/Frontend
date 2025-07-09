@@ -33,8 +33,6 @@ class _MyProfilePageState extends State<MyProfilePage> {
     "Technology", "Travel",
   ];
 
-
-
   Future<void> _showEditProfileDialog(BuildContext context) async {
     var userProvider = Provider.of<UserProvider>(context, listen: false) ;
     var user = userProvider.current;
@@ -252,7 +250,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   Future<bool> _uploadProfileImageApiCall(File imageFile, BuildContext pageContext) async {
     // Similar structure to _updateProfileApiCall, returning bool
     refreshToken(); // Consider making this await and checking success if it's critical before upload
-    String uploadProfileImageApiUrl = "http://192.168.1.62:8000/users/upload-profile-picture";
+    String uploadProfileImageApiUrl = "http://192.168.1.14:8000/users/upload-profile-picture";
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     try {
       final response = await _dio.post(
@@ -295,7 +293,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
     // No need to get UserProvider here if you're not using it directly for the API call itself
     // final currentUserProvider = Provider.of<UserProvider>(pageContext, listen: false);
 
-    const String updateProfileApiUrl = "http://192.168.1.62:8000/users/update-profile";
+    const String updateProfileApiUrl = "http://192.168.1.14:8000/users/update-profile";
 
     // Using pageContext for ScaffoldMessenger which is fine
     ScaffoldMessenger.of(pageContext).showSnackBar(
@@ -362,7 +360,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
   }
 
   Future<void> _logoutApiCall(BuildContext context) async {
-    const String logoutApiUrl = "http://192.168.1.62:8000/users/logout";
+    const String logoutApiUrl = "http://192.168.1.14:8000/users/logout";
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -460,7 +458,7 @@ class _MyProfilePageState extends State<MyProfilePage> {
                             radius: 35,
                             backgroundColor: Colors.white,
                             backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                                ? NetworkImage("http://172.27.0.1:8000/uploads/profile_pics/${user.profile_image!}")
+                                ? NetworkImage("http://192.168.1.14:8000/uploads/profile_pics/${user.profile_image!}")
                                 : null,
                             child: (user.profile_image == null || user.profile_image!.isEmpty)
                                 ? Icon(Icons.person, color: headerColor, size: 40)

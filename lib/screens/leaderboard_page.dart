@@ -141,10 +141,10 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                         ),
                       ),
                       const SizedBox(width: 6.0),
-                      leader['profile_image'] != null && leader['profile_image'].isNotEmpty
-                          ? ClipRRect(
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(24),
-                        child: Image.network(
+                        child: (leader['profile_image'] != null && leader['profile_image'].toString().trim().isNotEmpty)
+                            ? Image.network(
                           leader['profile_image'],
                           width: 47,
                           height: 47,
@@ -152,9 +152,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                           errorBuilder: (context, error, stackTrace) {
                             return Image.asset('assets/user-figma-icon.png', width: 47, height: 47);
                           },
-                        ),
-                      )
-                          : Image.asset('assets/user-figma-icon.png', width: 47, height: 47),
+                        )
+                            : Image.asset('assets/user-figma-icon.png', width: 47, height: 47),
+                      ),
                       const SizedBox(width: 11.0),
                       Expanded(
                         child: Column(
