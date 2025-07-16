@@ -37,7 +37,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // Step 2: Backend Login
-      final url = Uri.parse("http://192.168.1.32:8000/auth/login");
+      final url = Uri.parse("http://192.168.1.35:8000/auth/login");
 
       final response = await http.post(
         url,

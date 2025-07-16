@@ -83,7 +83,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       _error = null;
     });
 
-    final String apiUrl = "http://192.168.1.32:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.35:8000/users/${widget.userId}/profile";
 
     try {
       final response = await _dio.get(apiUrl);

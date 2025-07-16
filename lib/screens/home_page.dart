@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchWordOfTheDay() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.32:8002/word-of-the-day/today'),
+        Uri.parse('http://192.168.1.35:8002/word-of-the-day/today'),
         headers: {'accept': 'application/json'},
       );
 
@@ -90,7 +90,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     final dio = Dio();
-    final url = 'http://192.168.1.32:8000/activity/get_streaks';
+    final url = 'http://192.168.1.35:8000/activity/get_streaks';
 
     try {
       final response = await dio.get(
@@ -128,7 +128,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchPracticeHours() async {
     print("📡 Fetching total practice hours...");
-    final url = Uri.parse('http://192.168.1.32:8000/activity/get_practice_hours');
+    final url = Uri.parse('http://192.168.1.35:8000/activity/get_practice_hours');
 
     try {
       final prefs = await SharedPreferences.getInstance();

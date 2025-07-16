@@ -5,6 +5,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart';
 import '../../services/refresh_token_service.dart';
+import 'matchmaking_page.dart';
 
 
 // --- Report User Logic (Copied from your provided code) ---
@@ -54,6 +55,8 @@ class _AfterCallPageState extends State<AfterCallPage> {
   bool _friendRequestSent = false;
   String? _friendRequestError;
   int _selectedIndex = 2;
+  bool _shouldPop = false; // flag to allow pop after manual handling
+
 
 
   void _onItemTapped(int index) {
@@ -99,7 +102,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       _user = null;
     });
 
-    final String apiUrl = "http://192.168.1.32:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.35:8000/users/${widget.userId}/profile";
     print("AfterCallPage: Fetching user profile from: $apiUrl for userId: ${widget.userId}");
 
     try {
@@ -194,7 +197,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
     final dio = Dio();
-    final String friendRequestApiUrl = "http://192.168.1.32:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
+    final String friendRequestApiUrl = "http://192.168.1.35:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
 
     try {
       final response = await dio.post(
@@ -314,7 +317,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final dio = Dio();
-    const String reportApiUrl = "http://192.168.1.32:8000/reports/";
+    const String reportApiUrl = "http://192.168.1.35:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -388,7 +391,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
 
-    final String rateUserApiUrl = "http://192.168.1.32:8000/users/rate-user/${_user!.id}";
+    final String rateUserApiUrl = "http://192.168.1.35:8000/users/rate-user/${_user!.id}";
 
     print("Submitting rating $ratingToSubmit for user ${_user!.id} to $rateUserApiUrl");
 
@@ -521,7 +524,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       // ... (Your fallback UI if _user is still null)
       return Scaffold(
         appBar: AppBar(
-          leading: canPop ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: headerColor), onPressed: () => Navigator.pop(context)) : null,
+          // leading: canPop ? IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: headerColor), onPressed: () => Navigator.pop(context)) : null,
           title: const Text("Error", style: TextStyle(color: headerColor, fontWeight: FontWeight.bold, fontSize: 20)),
           backgroundColor: Colors.white, elevation: 1, centerTitle: true,
         ),
@@ -544,253 +547,267 @@ class _AfterCallPageState extends State<AfterCallPage> {
       interestsString = userToDisplay.interests!.join(', ');
     }
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // --- Custom Header ---
-          Container(
-            color: Colors.white,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-                child: Row(
-                  children: [
-                    if (canPop)
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
-                        borderRadius: BorderRadius.circular(24),
-                        child: const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Icon(Icons.arrow_back_ios_new, color: headerColor, size: 24),
+    return PopScope(
+      canPop:_shouldPop,
+      onPopInvokedWithResult: (didPop,result) {
+        if(!didPop){
+          setState(() {
+            _shouldPop = true;
+          });
+        }
+        // Replace current page with MatchmakingPage
+        if(mounted)Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => MatchmakingPage()),
+        );
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            // --- Custom Header ---
+            Container(
+              color: Colors.white,
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+                  child: Row(
+                    children: [
+                      // if (canPop)
+                      //   InkWell(
+                      //     onTap: () => Navigator.pop(context),
+                      //     borderRadius: BorderRadius.circular(24),
+                      //     child: const Padding(
+                      //       padding: EdgeInsets.all(8.0),
+                      //       child: Icon(Icons.arrow_back_ios_new, color: headerColor, size: 24),
+                      //     ),
+                      //   )
+                      // else
+                      //   const SizedBox(width: 40),
+                      Expanded(
+                        child: Text(
+                          // Use userToDisplay.name (or appropriate getter from your User model)
+                          "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: headerColor, fontWeight: FontWeight.bold, fontSize: 20),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      )
-                    else
-                      const SizedBox(width: 40),
-                    Expanded(
-                      child: Text(
-                        // Use userToDisplay.name (or appropriate getter from your User model)
-                        "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: headerColor, fontWeight: FontWeight.bold, fontSize: 20),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 40),
-                  ],
+                      const SizedBox(width: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          // --- Main Content Area ---
-          Expanded(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView( // Added SingleChildScrollView
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // --- User Profile Card ---
-                    Center(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                            color: headerColor.withOpacity(0.8),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.3), spreadRadius: 2, blurRadius: 5, offset: const Offset(0, 3))]
+            // --- Main Content Area ---
+            Expanded(
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.all(16.0),
+                child: SingleChildScrollView( // Added SingleChildScrollView
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // --- User Profile Card ---
+                      Center(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                              color: headerColor.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.3), spreadRadius: 2, blurRadius: 5, offset: const Offset(0, 3))]
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 35,
+                                backgroundColor: Colors.white,
+                                // Use userToDisplay.profileImage (or appropriate field from your User model)
+                                backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
+                                    ? NetworkImage("http://192.168.1.35:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
+                                    : null,
+                                child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
+                                    ? Icon(Icons.person, color: headerColor, size: 40)
+                                    : null,
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(userToDisplay.name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      "Age: ${userToDisplay.age ?? 'N/A'}${userToDisplay.gender != null && userToDisplay.gender!.isNotEmpty ? ', Gender: ${userToDisplay.gender}' : ''}",
+                                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (userToDisplay.rating != null && userToDisplay.rating! > 0) ...[
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.stars, color: Colors.white70, size: 16),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            " ${userToDisplay.rating!.toStringAsFixed(1)}",
+                                            style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
+                                          ),
+                                        ],
+                                      ),
+                                    ]
+                                  ],
+                                ),
+                              )
+                            ],
+                          ),
                         ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // --- Interests Section ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Text( // Simpler layout for interests
+                          "Interests: $interestsString",
+                          style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                          maxLines: 3, // Allow more lines for interests
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+
+                      // --- Report and Add Friend Buttons (Order from your previous image) ---
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 35,
-                              backgroundColor: Colors.white,
-                              // Use userToDisplay.profileImage (or appropriate field from your User model)
-                              backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
-                                  ? NetworkImage("http://192.168.1.32:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
-                                  : null,
-                              child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
-                                  ? Icon(Icons.person, color: headerColor, size: 40)
-                                  : null,
-                            ),
-                            const SizedBox(width: 20),
+                            // --- Report User Button (Using the style you defined previously) ---
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(userToDisplay.name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    "Age: ${userToDisplay.age ?? 'N/A'}${userToDisplay.gender != null && userToDisplay.gender!.isNotEmpty ? ', Gender: ${userToDisplay.gender}' : ''}",
-                                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (userToDisplay.rating != null && userToDisplay.rating! > 0) ...[
-                                    const SizedBox(height: 5),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.stars, color: Colors.white70, size: 16),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          " ${userToDisplay.rating!.toStringAsFixed(1)}",
-                                          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13),
-                                        ),
-                                      ],
-                                    ),
-                                  ]
-                                ],
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.report, color: Colors.white),
+                                label: const Text("Report", style: TextStyle(color: Colors.white)),
+                                onPressed: () {
+                                  // Call the new dialog function
+                                  _showReportUserDialog(context, userToDisplay);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.redAccent,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  textStyle: const TextStyle(fontSize: 15),
+                                ),
                               ),
-                            )
+                            ),
+                            const SizedBox(width: 16),
+                            // --- Add Friend Button (Using the style you defined previously and new state logic) ---
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isSendingFriendRequest || _friendRequestSent
+                                    ? null // Disable if sending or already sent
+                                    : () {
+                                  _sendFriendRequest(context, userToDisplay.id.toString(), userToDisplay.name);
+                                },
+                                icon: _isSendingFriendRequest
+                                    ? Container(
+                                  width: 18, // Adjusted for button padding
+                                  height: 18,
+                                  child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                                    : Icon(
+                                  _friendRequestSent ? Icons.check : Icons.person_add_alt_1_outlined,
+                                  color: Colors.white,
+                                ),
+                                label: Text(
+                                    _friendRequestSent ? "Request Sent" : (_isSendingFriendRequest ? "Sending..." : "Add Friend"),
+                                    style: const TextStyle(color: Colors.white)
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _friendRequestSent ? Colors.grey[600] : headerColor,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  textStyle: const TextStyle(fontSize: 15),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // --- Interests Section ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text( // Simpler layout for interests
-                        "Interests: $interestsString",
-                        style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                        maxLines: 3, // Allow more lines for interests
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-
-                    // --- Report and Add Friend Buttons (Order from your previous image) ---
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                      child: Row(
-                        children: [
-                          // --- Report User Button (Using the style you defined previously) ---
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.report, color: Colors.white),
-                              label: const Text("Report", style: TextStyle(color: Colors.white)),
-                              onPressed: () {
-                                // Call the new dialog function
-                                _showReportUserDialog(context, userToDisplay);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                textStyle: const TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // --- Add Friend Button (Using the style you defined previously and new state logic) ---
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _isSendingFriendRequest || _friendRequestSent
-                                  ? null // Disable if sending or already sent
-                                  : () {
-                                _sendFriendRequest(context, userToDisplay.id.toString(), userToDisplay.name);
-                              },
-                              icon: _isSendingFriendRequest
-                                  ? Container(
-                                width: 18, // Adjusted for button padding
-                                height: 18,
-                                child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                                  : Icon(
-                                _friendRequestSent ? Icons.check : Icons.person_add_alt_1_outlined,
-                                color: Colors.white,
-                              ),
-                              label: Text(
-                                  _friendRequestSent ? "Request Sent" : (_isSendingFriendRequest ? "Sending..." : "Add Friend"),
-                                  style: const TextStyle(color: Colors.white)
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _friendRequestSent ? Colors.grey[600] : headerColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                textStyle: const TextStyle(fontSize: 15),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_friendRequestError != null) // Display friend request error
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Text(_friendRequestError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                      ),
-
-                    const SizedBox(height: 20), // Spacing before rating
-
-                    // --- Rating Section Title ---
-                    Text(
-                      "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // --- Rating Bar ---
-                    Column(
-                      children: [
-                        RatingBar.builder(
-                          initialRating: _currentRatingValueForSubmission, // Reflects the last tap or fetched value
-                          minRating: 1,
-                          direction: Axis.horizontal,
-                          allowHalfRating: true,
-                          itemCount: 5,
-                          itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
-                          itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.amber),
-                          onRatingUpdate: (rating) {
-                            if (_isSubmittingRating) return; // Prevent updates if already submitting
-
-                            // 1. Update the UI immediately to reflect the user's tap
-                            setState(() {
-                              _currentRatingValueForSubmission = rating;
-                            });
-                            // 2. Then, submit this rating to the backend
-                            _submitRating(rating);
-                          },
-                          // If _isSubmittingRating is true, this will make it non-interactive
-                          // It won't visually dim it here unless you add more logic to itemBuilder
-                          ignoreGestures: _isSubmittingRating,
+                      if (_friendRequestError != null) // Display friend request error
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(_friendRequestError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
                         ),
-                        if (_isSubmittingRating) ...[ // Show spinner only when submitting
-                          const SizedBox(height: 10),
-                          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(headerColor)),
+
+                      const SizedBox(height: 20), // Spacing before rating
+
+                      // --- Rating Section Title ---
+                      Text(
+                        "Rate ${userToDisplay.firstName ?? userToDisplay.name}",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87),
+                      ),
+                      const SizedBox(height: 15),
+
+                      // --- Rating Bar ---
+                      Column(
+                        children: [
+                          RatingBar.builder(
+                            initialRating: _currentRatingValueForSubmission, // Reflects the last tap or fetched value
+                            minRating: 1,
+                            direction: Axis.horizontal,
+                            allowHalfRating: true,
+                            itemCount: 5,
+                            itemPadding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            itemBuilder: (context, _) => const Icon(Icons.star, color: Colors.amber),
+                            onRatingUpdate: (rating) {
+                              if (_isSubmittingRating) return; // Prevent updates if already submitting
+
+                              // 1. Update the UI immediately to reflect the user's tap
+                              setState(() {
+                                _currentRatingValueForSubmission = rating;
+                              });
+                              // 2. Then, submit this rating to the backend
+                              _submitRating(rating);
+                            },
+                            // If _isSubmittingRating is true, this will make it non-interactive
+                            // It won't visually dim it here unless you add more logic to itemBuilder
+                            ignoreGestures: _isSubmittingRating,
+                          ),
+                          if (_isSubmittingRating) ...[ // Show spinner only when submitting
+                            const SizedBox(height: 10),
+                            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(headerColor)),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 30), // Extra padding at the bottom
-                  ],
+                      ),
+                      const SizedBox(height: 30), // Extra padding at the bottom
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'Friends'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), activeIcon: Icon(Icons.smart_toy), label: 'AI'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), activeIcon: Icon(Icons.account_circle), label: 'Account'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xFFA58DCA), // Theme color
-        unselectedItemColor: Colors.grey[600],
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        showUnselectedLabels: true,
-        elevation: 5,
+          ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          backgroundColor: Colors.white,
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.people_outline), activeIcon: Icon(Icons.people), label: 'Friends'),
+            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'Chat'),
+            BottomNavigationBarItem(icon: Icon(Icons.smart_toy_outlined), activeIcon: Icon(Icons.smart_toy), label: 'AI'),
+            BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), activeIcon: Icon(Icons.account_circle), label: 'Account'),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: const Color(0xFFA58DCA), // Theme color
+          unselectedItemColor: Colors.grey[600],
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          showUnselectedLabels: true,
+          elevation: 5,
+        ),
       ),
     );
   }

@@ -52,7 +52,7 @@ class _FriendsPageState extends State<FriendsPage> {
     });
     refreshToken();
 
-    String url = "http://192.168.1.32:8000/friends/get-friend-list";
+    String url = "http://192.168.1.35:8000/friends/get-friend-list";
     try {
       Response res = await _dio.get(url,
           options: Options(
@@ -234,7 +234,7 @@ class _FriendsPageState extends State<FriendsPage> {
               radius: 28,
               backgroundColor: Colors.grey[300],
               backgroundImage: (user.profile_image != null && user.profile_image!.isNotEmpty)
-                  ? NetworkImage("http://192.168.1.32:8000/uploads/profile_pics/${user.profile_image!}")
+                  ? NetworkImage("http://192.168.1.35:8000/uploads/profile_pics/${user.profile_image!}")
                   : null,
               onBackgroundImageError: (user.profile_image != null && user.profile_image!.isNotEmpty)
                   ? (exception, stackTrace) {
