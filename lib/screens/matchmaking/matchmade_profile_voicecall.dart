@@ -83,7 +83,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       _error = null;
     });
 
-    final String apiUrl = "http://192.168.1.14:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.32:8000/users/${widget.userId}/profile";
 
     try {
       final response = await _dio.get(apiUrl);
@@ -314,7 +314,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
         if (data['callEnded'] == true) {
           print("📴 Call ended");
           await _hangUp();
-          if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+          // if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
           return;
         }
 

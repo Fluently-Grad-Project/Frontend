@@ -99,7 +99,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
       _user = null;
     });
 
-    final String apiUrl = "http://192.168.1.14:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.32:8000/users/${widget.userId}/profile";
     print("AfterCallPage: Fetching user profile from: $apiUrl for userId: ${widget.userId}");
 
     try {
@@ -194,7 +194,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
     final dio = Dio();
-    final String friendRequestApiUrl = "http://192.168.1.14:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
+    final String friendRequestApiUrl = "http://192.168.1.32:8000/friends/request/$recipientUserId"; // TODO: Replace with your real API endpoint
 
     try {
       final response = await dio.post(
@@ -314,7 +314,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
     final dio = Dio();
-    const String reportApiUrl = "http://192.168.1.14:8000/reports/";
+    const String reportApiUrl = "http://192.168.1.32:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -388,7 +388,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
     });
 
 
-    final String rateUserApiUrl = "http://192.168.1.14:8000/users/rate-user/${_user!.id}";
+    final String rateUserApiUrl = "http://192.168.1.32:8000/users/rate-user/${_user!.id}";
 
     print("Submitting rating $ratingToSubmit for user ${_user!.id} to $rateUserApiUrl");
 
@@ -608,7 +608,7 @@ class _AfterCallPageState extends State<AfterCallPage> {
                               backgroundColor: Colors.white,
                               // Use userToDisplay.profileImage (or appropriate field from your User model)
                               backgroundImage: (userToDisplay.profile_image != null && userToDisplay.profile_image!.isNotEmpty)
-                                  ? NetworkImage("http://192.168.1.14:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
+                                  ? NetworkImage("http://192.168.1.32:8000/uploads/profile_pics/${userToDisplay.profile_image!}")
                                   : null,
                               child: (userToDisplay.profile_image == null || userToDisplay.profile_image!.isEmpty)
                                   ? Icon(Icons.person, color: headerColor, size: 40)

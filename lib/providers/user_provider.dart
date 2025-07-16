@@ -17,7 +17,7 @@ class UserProvider with ChangeNotifier {
     dio.options.headers['Authorization'] = 'Bearer $token';
     dio.options.headers['Accept'] = 'application/json';
 
-    final response = await dio.get("http://192.168.1.14:8000/users/$userId/profile");
+    final response = await dio.get("http://192.168.1.32:8000/users/$userId/profile");
     _current = User.fromJson(response.data);
     notifyListeners();
   }

@@ -37,7 +37,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://192.168.1.14:8000/auth/reset-password"),
+        Uri.parse("http://192.168.1.32:8000/auth/reset-password"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "email": widget.email,
@@ -50,7 +50,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         final refreshToken = jsonDecode(response.body)['refresh_token'];
         if (refreshToken != null) {
           final refreshResponse = await http.post(
-            Uri.parse("http://192.168.1.14/auth/refresh-token?refresh_token=$refreshToken"),
+            Uri.parse("http://192.168.1.32/auth/refresh-token?refresh_token=$refreshToken"),
           );
 
           if (refreshResponse.statusCode == 200 && mounted) {

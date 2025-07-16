@@ -82,7 +82,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     try {
       final response = await dio.get(
-        'http://192.168.1.14:8000/friends/get-friend-requests',
+        'http://192.168.1.32:8000/friends/get-friend-requests',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${prefs.getString("token")}',
@@ -121,8 +121,8 @@ class _NotificationPageState extends State<NotificationPage> {
     final dio = Dio();
 
     final url = isAccept
-        ? 'http://192.168.1.14:8000/friends/accept/$senderId'
-        : 'http://192.168.1.14:8000/friends/reject/$senderId';
+        ? 'http://192.168.1.32:8000/friends/accept/$senderId'
+        : 'http://192.168.1.32:8000/friends/reject/$senderId';
 
     try {
       final response = await dio.post(

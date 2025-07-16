@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'after_call_page.dart';  // Make sure you have flutter_webrtc imported
-import 'package:record/record.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 
 class InCallScreen extends StatefulWidget {
   final Future<void> Function() hangUp;
@@ -31,11 +29,6 @@ class _InCallScreenState extends State<InCallScreen> {
   String _otherUserName = 'Voice Chat';
   DateTime? _callStartTime;
 
-  final Record _recorder = Record();
-  Timer? _uploadTimer;
-  String? _currentRecordingPath;
-
-
 
   static const double headerHeight = 60.0;
 
@@ -46,91 +39,7 @@ class _InCallScreenState extends State<InCallScreen> {
     super.initState();
     _callStartTime = DateTime.now();
     listenToCallEnd();
-    startRecordingAndUploadTimer(); // ⬅️ Start audio recording & periodic uploads
   }
-
-
-  Future<void> startRecordingAndUploadTimer() async {
-    final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) {
-      print("❌ Microphone permission denied");
-      return;
-    }
-
-    final dir = await getTemporaryDirectory();
-    final path = p.join(
-      dir.path,
-      'recording_${DateTime.now().millisecondsSinceEpoch}.m4a',
-    );
-    _currentRecordingPath = path;
-
-    await _recorder.start(
-      path: path,
-      encoder: AudioEncoder.aacLc,
-      bitRate: 128000,
-      samplingRate: 44100,
-    );
-
-    print("🎙️ Recording started at $path");
-
-    _uploadTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
-      await _uploadAudioToBackend();
-      // Don't call startRecordingAndUploadTimer again — just restart with a new file:
-      await _restartRecording();
-    });
-  }
-
-  Future<void> _restartRecording() async {
-    await _recorder.stop();
-
-    final dir = await getTemporaryDirectory();
-    final newPath = p.join(
-      dir.path,
-      'recording_${DateTime.now().millisecondsSinceEpoch}.m4a',
-    );
-    _currentRecordingPath = newPath;
-
-    await _recorder.start(
-      path: newPath,
-      encoder: AudioEncoder.aacLc,
-      bitRate: 128000,
-      samplingRate: 44100,
-    );
-
-    print("🎙️ Recording restarted at $newPath");
-  }
-
-
-  Future<void> _uploadAudioToBackend() async {
-    if (_currentRecordingPath == null) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("token");
-
-    final file = MultipartFile.fromFileSync(_currentRecordingPath!, filename: 'audio.m4a');
-    final formData = FormData.fromMap({
-      'file': file,
-    });
-
-    try {
-      final dio = Dio();
-      final response = await dio.post(
-        'http://localhost:8001/analyze-audio',
-        data: formData,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'multipart/form-data',
-          },
-        ),
-      );
-
-      print("✅ Audio uploaded: ${response.data}");
-    } catch (e) {
-      print("❌ Audio upload failed: $e");
-    }
-  }
-
 
   Future<void> updateCallDurationToBackend() async {
     if (_callStartTime == null) return;
@@ -139,9 +48,8 @@ class _InCallScreenState extends State<InCallScreen> {
     final duration = callEndTime.difference(_callStartTime!);
     final int minutes = duration.inMinutes;
 
-    // ✅ Skip if duration is negative or zero
-    if (minutes <= 0) {
-      print("⚠️ Call duration is less than or equal to 0 minutes. Skipping backend update.");
+    if (minutes == 0) {
+      print("⚠️ Call duration is less than 1 minute. Skipping backend update.");
       return;
     }
 
@@ -173,6 +81,7 @@ class _InCallScreenState extends State<InCallScreen> {
       print("❌ Failed to update activity hours: $e");
     }
   }
+
 
   Future<void> listenToCallEnd() async {
     final query = await _firestore
@@ -236,22 +145,13 @@ class _InCallScreenState extends State<InCallScreen> {
             // cleanup AFTER navigation
             await widget.hangUp();
             await updateCallDurationToBackend();
-            await _stopRecordingAndUploads();
+
           }
         });
         break;
       }
     }
   }
-
-  Future<void> _stopRecordingAndUploads() async {
-    _uploadTimer?.cancel();
-    if (await _recorder.isRecording()) {
-      await _recorder.stop();
-    }
-    print("🛑 Recording stopped.");
-  }
-
 
   Future<void> _fetchOtherUserName() async {
     if (_otherUserId == null) {
@@ -356,7 +256,7 @@ class _InCallScreenState extends State<InCallScreen> {
 
             // Big centered call AI icon, moved upward
             Transform.translate(
-              offset: const Offset(0, -40),
+              offset: const Offset(0, -50),
               child: Center(
                 child: Image.asset(
                   'assets/call-ai-icon.png',
