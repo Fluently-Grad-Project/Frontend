@@ -43,6 +43,11 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
   MediaStream? _localStream;
   StreamSubscription? _iceSub;
   StreamSubscription<DocumentSnapshot>? _callStateSub;
+  String? _currentlyHandledCallId;
+  bool _isNavigatingToCallPage = false; // <- Add this to your class (not inside the function)
+  final Set<String> _handledCallDocs = {};
+  bool _listenerInitialized = false;
+
 
   late String _selfId;
   String _calleeId = '';
@@ -142,10 +147,16 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
   Future<void> _initRenderers() async {
     _selfId = _auth.currentUser!.uid;
     await _localRenderer.initialize();
-    await _remoteRenderer.initialize();
+    if (_remoteRenderer.textureId == null) {
+      await _remoteRenderer.initialize();
+    }
     await _initLocalStream();
-    await _cleanPreviousCallsBetween(_selfId, _selfId);
-    setupCallListener();
+    await _cleanPreviousCallsBetween(_selfId, _calleeId.trim());
+
+    if (!_listenerInitialized) {
+      setupCallListener();
+      _listenerInitialized = true;
+    }
   }
 
   Future<void> _initLocalStream() async {
@@ -177,19 +188,63 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
     }
   }
 
-  bool _isNavigatingToCallPage = false; // <- Add this to your class (not inside the function)
-
   Future<void> setupCallListener() async {
     _firestore
         .collection('calls')
+        .where('calleeId', isEqualTo: _selfId)
+        .where('type', isEqualTo: 'offer')
+        .where('handledByCallee', isEqualTo: false)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .listen((snapshot) async {
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        if (data['calleeId'] == _selfId && data['type'] == 'offer') {
-          if (_isNavigatingToCallPage) return; // already navigating
+        final docId = doc.id;
+
+        print("📥 Incoming call: $docId");
+
+        // 🛑 Skip if already navigating or already handled
+        if (_isNavigatingToCallPage || _handledCallDocs.contains(docId) || _currentlyHandledCallId == docId) {
+          print("🚫 Skipping call $docId (already navigating or handled)");
+          continue;
+        }
+
+        _currentlyHandledCallId = docId; // ✅ Prevents handling the same call twice in parallel
+
+        try {
+          final docRef = _firestore.collection('calls').doc(docId);
+
+          // ✅ Atomically mark as handled in Firestore
+          final handled = await _firestore.runTransaction((txn) async {
+            final snap = await txn.get(docRef);
+            final callData = snap.data();
+            if (callData == null || callData['handledByCallee'] == true) {
+              print("⚠️ Call already handled in Firestore: $docId");
+              return false;
+            }
+            txn.update(docRef, {'handledByCallee': true});
+            return true;
+          });
+
+          if (!handled) {
+            print("⛔️ Skipping navigation, call already handled by another device.");
+            _currentlyHandledCallId = null;
+            continue;
+          }
+
+          print("✅ Marked $docId as handled");
+
+          _handledCallDocs.add(docId);
           _isNavigatingToCallPage = true;
+
+          // ⏱ Safety fallback
+          Future.delayed(const Duration(seconds: 15), () {
+            if (_isNavigatingToCallPage && _currentlyHandledCallId == docId) {
+              print("⏱ Fallback reset for $docId");
+              _isNavigatingToCallPage = false;
+              _currentlyHandledCallId = null;
+            }
+          });
 
           final callerId = data['callerId'];
           String callerName = "Unknown";
@@ -210,21 +265,28 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
                 callerId: callerId,
                 callerName: callerName,
                 firebaseUid: _selfId,
-                offerData: {...data, 'docId': doc.id},
+                offerData: {...data, 'docId': docId},
               ),
             ),
           );
 
-          if (result == true) {
-            await _answerCall({...data, 'docId': doc.id});
-          }
+          print("🔙 Navigation result from UserChatRequestPage: $result");
 
-          _isNavigatingToCallPage = false; // reset after navigation completes
+          if (result == true) {
+            print("📞 Answering call from $callerId");
+            await _answerCall({...data, 'docId': docId});
+          }
+        } catch (e) {
+          print("❌ Error handling incoming call: $e");
+        } finally {
+          if (mounted) {
+            _isNavigatingToCallPage = false;
+            _currentlyHandledCallId = null;
+          }
         }
       }
     });
   }
-
 
   Future<void> _resetMediaState() async {
     if (_peerConnection != null) {
@@ -299,6 +361,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
         'type': 'offer',
         'sdp': offer.sdp,
         'sdpType': offer.type,
+        'handledByCallee':false,
         'timestamp': FieldValue.serverTimestamp(),
         'callEnded': false,  // <-- important!
       });
@@ -362,6 +425,8 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
   }
 
   Future<void> _answerCall(Map<String, dynamic> offerData) async {
+    await _resetMediaState();
+
     _callDocId = offerData['docId'];
     await _initLocalStream();
     _peerConnection = await _createPeerConnection(isCaller: false);
@@ -382,11 +447,35 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
   }
 
   Future<RTCPeerConnection> _createPeerConnection({required bool isCaller}) async {
-    final config = {'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}]};
-    final pc = await createPeerConnection(config);
-    pc.onTrack = (event) {
-      if (event.streams.isNotEmpty) _remoteRenderer.srcObject = event.streams.first;
+    final config = {
+      'iceServers': [
+        {'urls': 'stun:stun.l.google.com:19302'},
+      ]
     };
+
+    final pc = await createPeerConnection(config);
+
+    // ✅ Add local media tracks to the connection
+    if (_localStream != null) {
+      for (var track in _localStream!.getTracks()) {
+        pc.addTrack(track, _localStream!);
+      }
+    } else {
+      print('⚠️ Warning: _localStream is null when adding tracks');
+    }
+
+    // ✅ Handle remote tracks
+    pc.onTrack = (event) {
+      print('📥 Remote track received: ${event.track.kind}');
+      if (event.streams.isNotEmpty) {
+        _remoteRenderer.srcObject = event.streams.first;
+        print('✅ Remote stream assigned to renderer');
+      } else {
+        print('⚠️ Remote stream is empty');
+      }
+    };
+
+    // ✅ Handle ICE candidates
     pc.onIceCandidate = (candidate) async {
       if (_callDocId != null) {
         final ref = _firestore
@@ -396,6 +485,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
         await ref.add(candidate.toMap());
       }
     };
+
     return pc;
   }
 
@@ -465,9 +555,8 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
 
     _calleeId = '';         // ✅ Add this line
     _callDocId = null;      // ✅ Reset call ID
-    // setState(() {});
+    setState(() {});
   }
-
 
   @override
   Widget build(BuildContext context) {
