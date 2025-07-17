@@ -9,6 +9,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../providers/Ip_provider.dart';
+
 class MatchMadeProfile extends StatefulWidget {
   final int userId;
 
@@ -88,7 +90,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       _error = null;
     });
 
-    final String apiUrl = "http://192.168.1.14:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://${IpAddress}:8000/users/${widget.userId}/profile";
 
     try {
       final response = await _dio.get(apiUrl);

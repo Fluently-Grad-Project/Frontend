@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import '../../providers/Ip_provider.dart';
 import 'rest_password.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
@@ -29,7 +30,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://192.168.1.14:8000/auth/request-password-reset"),
+        Uri.parse("http://${IpAddress}:8000/auth/request-password-reset"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"email": email}),
       );

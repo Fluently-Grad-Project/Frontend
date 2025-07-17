@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // 🔥 Firestore import
 
 import '../../../providers/onboarding_provider.dart';
+import '../../providers/Ip_provider.dart';
 
 class AccountCreatedPage extends StatefulWidget {
   final String firstName;
@@ -58,7 +59,7 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
 
       // Step 3: Send to backend
       final response = await http.post(
-        Uri.parse('http://192.168.1.14:8000/users/register'),
+        Uri.parse('http://${IpAddress}:8000/users/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(userPayload),
       );

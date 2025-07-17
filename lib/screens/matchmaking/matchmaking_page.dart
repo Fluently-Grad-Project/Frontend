@@ -3,6 +3,7 @@ import 'package:besso_fluently/screens/matchmaking/user_chat_request_page.dart';
 import 'package:besso_fluently/screens/matchmaking/user_making_call_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dio/dio.dart';
+import '../../providers/Ip_provider.dart';
 import 'call_manager.dart';
 import 'package:flutter/material.dart';
 // Keep if you use rating bar in profile or elsewhere
@@ -655,7 +656,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
     });
 
     // 1. Fetch initial list of matched user IDs and similarity scores
-    String matchmakingUrl = "http://192.168.1.14:8000/matchmaking/get-matched-users?n_recommendations=5";
+    String matchmakingUrl = "http://${IpAddress}:8000/matchmaking/get-matched-users?n_recommendations=5";
     List<User> fullyFetchedUsers = [];
 
     try {
@@ -731,7 +732,7 @@ class _MatchmakingPageState extends State<MatchmakingPage> {
   // Helper method to fetch individual user profile
   // Takes initialData from the matchmaking endpoint to preserve similarity_score and other direct fields.
   Future<User?> _fetchUserProfile(int userId, String? token, {required Map<String, dynamic> initialData}) async {
-    String profileUrl = "http://192.168.1.14:8000/users/$userId/profile";
+    String profileUrl = "http://${IpAddress}:8000/users/$userId/profile";
     try {
       print("MatchmakingPage: Fetching profile for user ID $userId from $profileUrl");
       Response profileRes = await _dio.get(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import '../../providers/Ip_provider.dart';
 import 'login_page.dart';
 
 class ResetPasswordPage extends StatefulWidget {
@@ -37,7 +38,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
 
     try {
       final response = await http.post(
-        Uri.parse("http://192.168.1.32:8000/auth/reset-password"),
+        Uri.parse("http://${IpAddress}:8000/auth/reset-password"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "email": widget.email,
@@ -50,7 +51,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         final refreshToken = jsonDecode(response.body)['refresh_token'];
         if (refreshToken != null) {
           final refreshResponse = await http.post(
-            Uri.parse("http://192.168.1.32/auth/refresh-token?refresh_token=$refreshToken"),
+            Uri.parse("http://${IpAddress}/auth/refresh-token?refresh_token=$refreshToken"),
           );
 
           if (refreshResponse.statusCode == 200 && mounted) {

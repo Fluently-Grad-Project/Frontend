@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../providers/Ip_provider.dart';
 import '../../services/call_service.dart';
 import 'signup_page.dart';
 import 'forgot_password_page.dart';
@@ -37,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // Step 2: Backend Login
-      final url = Uri.parse("http://192.168.1.14:8000/auth/login");
+      final url = Uri.parse("http://${IpAddress}:8000/auth/login");
 
       final response = await http.post(
         url,

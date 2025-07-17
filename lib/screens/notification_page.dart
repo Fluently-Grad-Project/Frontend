@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart'; // ⬅ Add this
+import '../providers/Ip_provider.dart';
 import 'home_page.dart';
 import 'ai_chat_page.dart';
 import 'package:dio/dio.dart';
@@ -82,7 +83,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     try {
       final response = await dio.get(
-        'http://192.168.1.14:8000/friends/get-friend-requests',
+        'http://${IpAddress}:8000/friends/get-friend-requests',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${prefs.getString("token")}',
@@ -121,8 +122,8 @@ class _NotificationPageState extends State<NotificationPage> {
     final dio = Dio();
 
     final url = isAccept
-        ? 'http://192.168.1.14:8000/friends/accept/$senderId'
-        : 'http://192.168.1.14:8000/friends/reject/$senderId';
+        ? 'http://${IpAddress}:8000/friends/accept/$senderId'
+        : 'http://${IpAddress}:8000/friends/reject/$senderId';
 
     try {
       final response = await dio.post(

@@ -8,6 +8,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../providers/Ip_provider.dart';
+
 
 class AudioChatScreen extends StatefulWidget {
   @override
@@ -65,7 +67,7 @@ class _AudioChatScreenState extends State<AudioChatScreen> {
       // Create multipart request
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.1.32:3000/api/chat'),
+        Uri.parse('http://${IpAddress}:3000/api/chat'),
       );
 
       // Add audio file

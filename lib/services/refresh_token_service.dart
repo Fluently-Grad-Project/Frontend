@@ -2,12 +2,14 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../providers/Ip_provider.dart';
+
 Future<bool> refreshToken() async { // Changed to return bool for success
   final prefs = await SharedPreferences.getInstance();
   final String? oldRefreshToken = prefs.getString('refresh_token');
 
   Dio _dio = Dio();
-  String url = "http://192.168.1.14:8000/auth/refresh-token?refresh_token="; // Corrected URL structure
+  String url = "http://${IpAddress}:8000/auth/refresh-token?refresh_token="; // Corrected URL structure
 
   print("RefreshTokenService: Attempting to refresh token with URL: $url and token: $oldRefreshToken");
 

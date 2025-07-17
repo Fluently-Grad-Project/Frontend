@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../providers/Ip_provider.dart';
 import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -102,7 +103,7 @@ class _InCallScreenState extends State<InCallScreen> {
       });
 
       final response = await dio.post(
-        'http://192.168.1.14:8001/analyze-audio',
+        'http://${IpAddress}:8001/analyze-audio',
         data: formData,
         options: Options(
           headers: {

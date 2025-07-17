@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import '../providers/Ip_provider.dart';
 import 'Profile/profile_page.dart';
 import 'ai_chat_page.dart';
 import 'friends/friend_profile.dart';
@@ -53,7 +54,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchWordOfTheDay() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.14:8002/word-of-the-day/today'),
+        Uri.parse('http://${IpAddress}:8002/word-of-the-day/today'),
         headers: {'accept': 'application/json'},
       );
 
@@ -90,7 +91,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     final dio = Dio();
-    final url = 'http://192.168.1.14:8000/activity/get_streaks';
+    final url = 'http://${IpAddress}:8000/activity/get_streaks';
 
     try {
       final response = await dio.get(
@@ -128,7 +129,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> fetchPracticeHours() async {
     print("📡 Fetching total practice hours...");
-    final url = Uri.parse('http://192.168.1.14:8000/activity/get_practice_hours');
+    final url = Uri.parse('http://${IpAddress}:8000/activity/get_practice_hours');
 
     try {
       final prefs = await SharedPreferences.getInstance();

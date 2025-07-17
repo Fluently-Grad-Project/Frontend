@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/user_model.dart';
+import '../../providers/Ip_provider.dart';
 import '../../services/refresh_token_service.dart';
 
 // Placeholder for ReportReason enum - ensure it matches yours
@@ -70,7 +71,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // For example:
     try {
-      final response = await _dio.get("http://192.168.1.14:8000/users/${user.id}/rating" // Fictional endpoint
+      final response = await _dio.get("http://${IpAddress}:8000/users/${user.id}/rating" // Fictional endpoint
       );
       if (response.statusCode == 200 && response.data != null && response.data['average_rating'] != null) {
         _fetchedUserRating = (response.data['average_rating'] as num).toDouble();
@@ -97,7 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Use 10.0.2.2 for Android Emulator to connect to localhost on your machine
 
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    final String blockUserApiUrl = "http://192.168.1.14:8000/users/block-user/$userIdToBlock";
+    final String blockUserApiUrl = "http://${IpAddress}:8000/users/block-user/$userIdToBlock";
     print("Attempting to block user $userIdToBlock at $blockUserApiUrl");
 
     if (!mounted) return;
@@ -259,7 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // report user API call
   Future<void> _reportUserApiCall( String userIdToReport, ReportReason reason, BuildContext scaffoldContext, String reportedUserName) async {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
-    const String reportApiUrl = "http://192.168.1.14:8000/reports/";
+    final String reportApiUrl = "http://${IpAddress}:8000/reports/";
     String priority ;
     if (reason == ReportReason.offensiveLanguage) {
       priority = "MEDIUM";
@@ -319,7 +320,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _isSubmittingRating = true;
     });
 
-    final String rateUserApiUrl = "http://192.168.1.14:8000/users/rate-user/${user.id}";
+    final String rateUserApiUrl = "http://${IpAddress}:8000/users/rate-user/${user.id}";
     print("Submitting rating $ratingToSubmit for user ${user.id} to $rateUserApiUrl");
 
     try {
