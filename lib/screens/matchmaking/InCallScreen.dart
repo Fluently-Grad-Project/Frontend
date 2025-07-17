@@ -1,11 +1,16 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '/utils/firestore_helpers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'after_call_page.dart';  // Make sure you have flutter_webrtc imported
+import 'after_call_page.dart';
+import 'matchmaking_page.dart';
 
 class InCallScreen extends StatefulWidget {
   final Future<void> Function() hangUp;
@@ -29,6 +34,14 @@ class _InCallScreenState extends State<InCallScreen> {
   String _otherUserName = 'Voice Chat';
   DateTime? _callStartTime;
 
+  final _recorder = Record();
+  Timer? _recordingTimer;
+  bool _isRecording = false;
+  int offensiveCount = 0;
+  bool callTerminatedDueToDetection = false;
+
+
+
 
   static const double headerHeight = 60.0;
 
@@ -39,6 +52,129 @@ class _InCallScreenState extends State<InCallScreen> {
     super.initState();
     _callStartTime = DateTime.now();
     listenToCallEnd();
+    _requestMicPermissionAndStartRecording();
+  }
+
+  Future<void> _requestMicPermissionAndStartRecording() async {
+    final status = await Permission.microphone.request();
+    if (status.isGranted) {
+      _startRecordingLoop();
+    } else {
+      print("❌ Microphone permission denied");
+    }
+  }
+
+  void _startRecordingLoop() async {
+    final tempDir = await getTemporaryDirectory();
+
+    _recordingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (_isRecording) {
+        final path = await _recorder.stop();
+        _isRecording = false;
+
+        if (path != null) {
+          await _sendAudioToBackend(path);
+        }
+      }
+
+      final fileName = 'audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      final fullPath = p.join(tempDir.path, fileName);
+
+      await _recorder.start(
+        path: fullPath,
+        encoder: AudioEncoder.aacLc,
+        bitRate: 128000,
+        samplingRate: 16000,
+      );
+
+      _isRecording = true;
+    });
+  }
+
+  Future<void> _sendAudioToBackend(String filePath) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+    final dio = Dio();
+
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath, filename: 'chunk.m4a'),
+      });
+
+      final response = await dio.post(
+        'http://192.168.1.14:8001/analyze-audio',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+          },
+        ),
+      );
+
+      final String result = response.data['result'] ?? '';
+
+      if (result.toLowerCase() == 'hate') {
+        print("⚠️ Hate speech detected. Terminating call.");
+        await _terminateCallDueToViolation(reason: "Hate speech");
+      } else if (result.toLowerCase() == 'offensive') {
+        offensiveCount++;
+        print("⚠️ Offensive speech detected. Count: $offensiveCount");
+
+        if (offensiveCount >= 3) {
+          print("⚠️ Offensive speech limit reached. Terminating call.");
+          await _terminateCallDueToViolation(reason: "Repeated offensive speech");
+        }
+      }
+    } catch (e) {
+      print("❌ Error sending audio: $e");
+    }
+  }
+
+  Future<void> _terminateCallDueToViolation({required String reason}) async {
+    if (callTerminatedDueToDetection) return;
+
+    callTerminatedDueToDetection = true;
+    print("🚫 Ending call due to: $reason");
+
+    if (_callDocId != null) {
+      await _firestore.collection('calls').doc(_callDocId).update({
+        'callEnded': true,
+        'callEndedBy': widget.selfId,
+      });
+    }
+
+    await _recorder.stop();
+    _recordingTimer?.cancel();
+    await widget.hangUp();
+    await updateCallDurationToBackend();
+
+    if (_otherUserId != null) {
+      final otherUserId = await getBackendUserIdFromFirebaseUid(_otherUserId!);
+
+      if (mounted) {
+        if (otherUserId != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => AfterCallPage(userId: otherUserId),
+              ),
+            );
+          });
+        } else {
+          print("⚠️ Could not resolve otherUserId");
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Navigator.of(context).pushReplacementNamed('/friends');
+          });
+        }
+      }
+    } else {
+      print("⚠️ _otherUserId is null");
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        });
+      }
+    }
   }
 
   Future<void> updateCallDurationToBackend() async {
@@ -81,7 +217,6 @@ class _InCallScreenState extends State<InCallScreen> {
       print("❌ Failed to update activity hours: $e");
     }
   }
-
 
   Future<void> listenToCallEnd() async {
     final query = await _firestore
@@ -143,6 +278,8 @@ class _InCallScreenState extends State<InCallScreen> {
             }
 
             // cleanup AFTER navigation
+            _recordingTimer?.cancel();
+            await _recorder.stop();
             await widget.hangUp();
             await updateCallDurationToBackend();
 
@@ -185,11 +322,12 @@ class _InCallScreenState extends State<InCallScreen> {
   @override
   void dispose() {
     _callSub?.cancel();
+    _recordingTimer?.cancel();
+    _recorder.dispose();
     super.dispose();
   }
 
   double topSpacingHeight = 35.0;
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
