@@ -58,7 +58,7 @@ class _AccountCreatedPageState extends State<AccountCreatedPage> {
 
       // Step 3: Send to backend
       final response = await http.post(
-        Uri.parse('http://192.168.1.35:8000/users/register'),
+        Uri.parse('http://192.168.1.10:8000/users/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(userPayload),
       );

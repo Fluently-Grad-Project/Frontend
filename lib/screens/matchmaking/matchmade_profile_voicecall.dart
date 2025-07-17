@@ -83,7 +83,7 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
       _error = null;
     });
 
-    final String apiUrl = "http://192.168.1.35:8000/users/${widget.userId}/profile";
+    final String apiUrl = "http://192.168.1.10:8000/users/${widget.userId}/profile";
 
     try {
       final response = await _dio.get(apiUrl);
@@ -177,31 +177,54 @@ class _MatchMadeProfileState extends State<MatchMadeProfile> {
     }
   }
 
+  bool _isNavigatingToCallPage = false; // <- Add this to your class (not inside the function)
+
   Future<void> setupCallListener() async {
-    _firestore.collection('calls').orderBy('timestamp', descending: true).snapshots().listen((snapshot) async {
+    _firestore
+        .collection('calls')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((snapshot) async {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         if (data['calleeId'] == _selfId && data['type'] == 'offer') {
+          if (_isNavigatingToCallPage) return; // already navigating
+          _isNavigatingToCallPage = true;
+
           final callerId = data['callerId'];
           String callerName = "Unknown";
+
           try {
             final userDoc = await _firestore.collection('users').doc(callerId).get();
-            if (userDoc.exists) callerName = userDoc.data()?['username'] ?? "Unknown";
+            if (userDoc.exists) {
+              callerName = userDoc.data()?['username'] ?? "Unknown";
+            }
           } catch (_) {}
+
           if (!mounted) return;
-          final result = await Navigator.push(context, MaterialPageRoute(
-            builder: (_) => UserChatRequestPage(
-              callerId: callerId,
-              callerName: callerName,
-              firebaseUid: _selfId,
-              offerData: {...data, 'docId': doc.id},
+
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserChatRequestPage(
+                callerId: callerId,
+                callerName: callerName,
+                firebaseUid: _selfId,
+                offerData: {...data, 'docId': doc.id},
+              ),
             ),
-          ));
-          if (result == true) await _answerCall({...data, 'docId': doc.id});
+          );
+
+          if (result == true) {
+            await _answerCall({...data, 'docId': doc.id});
+          }
+
+          _isNavigatingToCallPage = false; // reset after navigation completes
         }
       }
     });
   }
+
 
   Future<void> _resetMediaState() async {
     if (_peerConnection != null) {

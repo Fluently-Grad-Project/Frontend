@@ -257,7 +257,7 @@ class _ChatPageState extends State<ChatPage> {
 
 
     try {
-      final targetUrl = 'http://192.168.1.35:8000/chat/history?receiver_id=${widget.chatUser.id}';
+      final targetUrl = 'http://192.168.1.10:8000/chat/history?receiver_id=${widget.chatUser.id}';
       print("DEBUG: _fetchChatHistory: Sending API request to: $targetUrl");
       print("DEBUG: _fetchChatHistory: Authorization Header: 'Bearer $token'");
 
@@ -382,7 +382,7 @@ class _ChatPageState extends State<ChatPage> {
       return;
     }
 
-    final String apiUrl = "http://192.168.1.35:8000/chat/mark-as-read/$senderId";
+    final String apiUrl = "http://192.168.1.10:8000/chat/mark-as-read/$senderId";
     print("ChatPage: Marking messages from sender $senderId as read. URL: $apiUrl");
 
     try {
@@ -469,7 +469,7 @@ class _ChatPageState extends State<ChatPage> {
     final SharedPreferences prefs =  await SharedPreferences.getInstance();
 
     refreshToken();
-    final wsUrl = Uri.parse('ws://192.168.1.35:8000/ws/chat?token=${prefs.getString("token")}');
+    final wsUrl = Uri.parse('ws://192.168.1.10:8000/ws/chat?token=${prefs.getString("token")}');
     print("ChatPage: Attempting to connect to WebSocket: $wsUrl");
     setState(() {
       _connectionStatusMessage = "Connecting...";
@@ -903,7 +903,7 @@ class _ChatPageState extends State<ChatPage> {
                               radius: 20,
                               backgroundColor: headerColor.withOpacity(0.1),
                               backgroundImage: widget.chatUser.profile_image != null && widget.chatUser.profile_image!.isNotEmpty
-                                  ? NetworkImage("http://192.168.1.35:8000/uploads/profile_pics/${widget.chatUser.profile_image!}")
+                                  ? NetworkImage("http://192.168.1.10:8000/uploads/profile_pics/${widget.chatUser.profile_image!}")
                                   : null,
                               child: widget.chatUser.profile_image == null || widget.chatUser.profile_image!.isEmpty
                                   ? Text(
